@@ -205,7 +205,8 @@ module Email
       result = create_post_with_attachments(@user,
                                           raw: @body,
                                           title: @message.subject,
-                                          category: @category_id)
+                                          category: @category_id,
+										  skip_validations: @allow_strangers)
 
       topic_id = result.post.present? ? result.post.topic_id : nil
       EmailLog.create(
