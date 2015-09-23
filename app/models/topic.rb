@@ -218,7 +218,7 @@ class Topic < ActiveRecord::Base
     end
   end
 
-  def visible_post_types(viewed_by=nil)
+  def self.visible_post_types(viewed_by=nil)
     types = Post.types
     result = [types[:regular], types[:moderator_action], types[:small_action]]
     result << types[:whisper] if viewed_by.try(:staff?)
@@ -259,7 +259,7 @@ class Topic < ActiveRecord::Base
   # Additional rate limits on topics: per day and private messages per day
   def limit_topics_per_day
     apply_per_day_rate_limit_for("topics", :max_topics_per_day)
-    limit_first_day_topics_per_day if user.first_day_user?
+    limit_first_day_topics_per_day if user && user.first_day_user?
   end
 
   def limit_private_messages_per_day

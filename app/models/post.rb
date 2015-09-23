@@ -90,22 +90,23 @@ class Post < ActiveRecord::Base
   end
 
   def limit_posts_per_day
-    if user.first_day_user? && post_number && post_number > 1
+    if user && user.first_day_user? && post_number && post_number > 1
       RateLimiter.new(user, "first-day-replies-per-day", SiteSetting.max_replies_in_first_day, 1.day.to_i)
     end
   end
 
   def publish_change_to_clients!(type)
-
-    channel = "/topic/#{topic_id}"
-    msg = { id: id,
-            post_number: post_number,
-            updated_at: Time.now,
-            type: type }
-
     # special failsafe for posts missing topics consistency checks should fix, but message
     # is safe to skip
     return unless topic
+
+    channel = "/topic/#{topic_id}"
+    msg = {
+      id: id,
+      post_number: post_number,
+      updated_at: Time.now,
+      type: type
+    }
 
     # Whispers should not be published to everyone
     if post_type == Post.types[:whisper]
