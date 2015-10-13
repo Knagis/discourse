@@ -23,7 +23,7 @@ module TopicGuardian
     return false if topic.trashed?
 
     # if anonymous emails are allowed in the category, users can see their own topics
-    return true if authenticated? && topic.category.email_in_allow_strangers && topic.first_post.user_id == @user.id
+    return true if authenticated? && topic.category?.email_in_allow_strangers? && topic.first_post.user_id == @user.id
 
     is_staff? || (authenticated? && user.has_trust_level?(TrustLevel[4])) || (not(topic.closed? || topic.archived? || topic.trashed?) && can_create_post?(topic))
   end
