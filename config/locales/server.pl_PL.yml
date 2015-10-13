@@ -278,7 +278,6 @@ pl_PL:
       title: "starszyzna"
     change_failed_explanation: "Twoja próba obniżenia poziomu %{user_name} do '%{new_trust_level}' była nieudana. Ten użytkownik posiada już poziom '%{current_trust_level}'. %{user_name} pozostanie na poziomie '%{current_trust_level}' - jeśli chcesz to zmienić, najpierw zablokuj poziom zaufania temu użytkownikowi."
   rate_limiter:
-    slow_down: "Ta akcja została wykonana zbyt wiele razy, próbuj ponownie za jakiś czas"
     too_many_requests: "Liczba wykonań tej czynności w ciągu dnia jest ograniczona. Odczekaj %{time_left} przed ponowną próbą."
     hours:
       one: "1 godzina"

@@ -1,3 +1,8 @@
+import KeyValueStore from "discourse/lib/key-value-store";
+
+const keyValueStore = new KeyValueStore("discourse_emojis_");
+const EMOJI_USAGE = "emojiUsage";
+
 // note that these categories are copied from Slack
 // be careful, there are ~20 differences in synonyms, e.g. :boom: vs. :collision:
 // a few Emoji are actually missing from the Slack categories as well (?), and were added
@@ -85,21 +90,17 @@ var initializeUngroupedIcons = function(){
   }
 };
 
-try {
-  if (localStorage && !localStorage.emojiUsage) { localStorage.emojiUsage = "{}"; }
-} catch(e){
-/* localStorage can be disabled, or cookies disabled, do not crash script here
- * TODO introduce a global wrapper for dealing with local storage
- * */
+if (!keyValueStore.getObject(EMOJI_USAGE)) {
+  keyValueStore.setObject({key: EMOJI_USAGE, value: {}});
 }
 
-var trackEmojiUsage = function(title){
-  var recent = JSON.parse(localStorage.emojiUsage);
+var trackEmojiUsage = function(title) {
+  var recent = keyValueStore.getObject(EMOJI_USAGE);
 
   if (!recent[title]) { recent[title] = { title: title, usage: 0 }; }
   recent[title]["usage"]++;
 
-  localStorage.emojiUsage = JSON.stringify(recent);
+  keyValueStore.setObject({key: EMOJI_USAGE, value: recent});
 
   // clear the cache
   recentlyUsedIcons = null;
@@ -108,7 +109,7 @@ var trackEmojiUsage = function(title){
 var initializeRecentlyUsedIcons = function(){
   recentlyUsedIcons = [];
 
-  var usage = _.map(JSON.parse(localStorage.emojiUsage));
+  var usage = _.map(keyValueStore.getObject(EMOJI_USAGE));
   usage.sort(function(a,b){
     if(a.usage > b.usage){
       return -1;
@@ -160,13 +161,15 @@ var toolbar = function(selected){
 
 var PER_ROW = 12, PER_PAGE = 60;
 
-var bindEvents = function(page,offset){
+var bindEvents = function(page, offset, options) {
   var composerController = Discourse.__container__.lookup('controller:composer');
 
   $('.emoji-page a').click(function(){
     var title = $(this).attr('title');
     trackEmojiUsage(title);
-    composerController.appendTextAtCursor(":" + title + ":", {space: true});
+
+    const prefix = options.skipPrefix ? "" : ":";
+    composerController.appendTextAtCursor(`${prefix}${title}:`, {space: !options.skipPrefix});
     closeSelector();
     return false;
   }).hover(function(){
@@ -178,23 +181,23 @@ var bindEvents = function(page,offset){
   });
 
   $('.emoji-modal .nav .next a').click(function(){
-    render(page, offset+PER_PAGE);
+    render(page, offset+PER_PAGE, options);
   });
 
   $('.emoji-modal .nav .prev a').click(function(){
-    render(page, offset-PER_PAGE);
+    render(page, offset-PER_PAGE, options);
   });
 
   $('.emoji-modal .toolbar a').click(function(){
     var p = parseInt($(this).data('group-id'));
-    render(p, 0);
+    render(p, 0, options);
     return false;
   });
 };
 
-var render = function(page, offset){
-  localStorage.emojiPage = page;
-  localStorage.emojiOffset = offset;
+var render = function(page, offset, options) {
+  keyValueStore.set({key: "emojiPage", value: page});
+  keyValueStore.set({key: "emojiOffset", value: offset});
 
   var toolbarItems = toolbar(page);
   var rows = [], row = [];
@@ -222,19 +225,23 @@ var render = function(page, offset){
   var rendered = Ember.TEMPLATES["emoji-toolbar.raw"](model);
   $('body').append(rendered);
 
-  bindEvents(page, offset);
+  bindEvents(page, offset, options);
 };
 
-var showSelector = function(){
+var showSelector = function(options) {
+  options = options || {};
+
   $('body').append('<div class="emoji-modal-wrapper"></div>');
 
   $('.emoji-modal-wrapper').click(function(){
     closeSelector();
   });
 
-  var page = parseInt(localStorage.emojiPage) || 0;
-  var offset = parseInt(localStorage.emojiOffset) || 0;
-  render(page, offset);
+  if (Discourse.Mobile.mobileView) PER_ROW = 9;
+
+  var page = keyValueStore.getInt("emojiPage", 0);
+  var offset = keyValueStore.getInt("emojiOffset", 0);
+  render(page, offset, options);
 
   $('body, textarea').on('keydown.emoji', function(e){
     if(e.which === 27){

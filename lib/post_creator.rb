@@ -168,7 +168,7 @@ class PostCreator
   end
 
   def self.before_create_tasks(post)
-    set_reply_user_id(post)
+    set_reply_info(post)
 
     post.word_count = post.raw.scan(/\w+/).size
     post.post_number ||= Topic.next_post_number(post.topic_id, post.reply_to_post_number.present?)
@@ -176,15 +176,23 @@ class PostCreator
     cooking_options = post.cooking_options || {}
     cooking_options[:topic_id] = post.topic_id
 
-    post.cooked ||= post.cook(post.raw, cooking_options)
+    post.cooked ||= post.cook(post.raw, cooking_options.symbolize_keys)
     post.sort_order = post.post_number
     post.last_version_at ||= Time.now
   end
 
-  def self.set_reply_user_id(post)
+  def self.set_reply_info(post)
     return unless post.reply_to_post_number.present?
 
-    post.reply_to_user_id ||= Post.select(:user_id).find_by(topic_id: post.topic_id, post_number: post.reply_to_post_number).try(:user_id)
+    reply_info = Post.where(topic_id: post.topic_id, post_number: post.reply_to_post_number)
+                     .select(:user_id, :post_type)
+                     .first
+
+    if reply_info.present?
+      post.reply_to_user_id ||= reply_info.user_id
+      whisper_type = Post.types[:whisper]
+      post.post_type = whisper_type if reply_info.post_type == whisper_type
+    end
   end
 
   protected
