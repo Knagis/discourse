@@ -60,10 +60,13 @@ Discourse::Application.routes.draw do
     resources :groups, constraints: AdminConstraint.new do
       collection do
         post "refresh_automatic_groups" => "groups#refresh_automatic_groups"
+        get 'bulk'
+        get 'bulk-complete' => 'groups#bulk'
+        put 'bulk' => 'groups#bulk_perform'
       end
       member do
-        put "members" => "groups#add_members"
-        delete "members" => "groups#remove_member"
+        put "owners" => "groups#add_owners"
+        delete "owners" => "groups#remove_owner"
       end
     end
 
@@ -329,9 +332,15 @@ Discourse::Application.routes.draw do
     get 'posts'
     get 'counts'
 
-    put "members" => "groups#add_members"
-    delete "members/:username" => "groups#remove_member"
+    member do
+      put "members" => "groups#add_members"
+      delete "members" => "groups#remove_member"
+    end
   end
+
+  # aliases so old API code works
+  delete "admin/groups/:id/members" => "groups#remove_member", constraints: AdminConstraint.new
+  put "admin/groups/:id/members" => "groups#add_members", constraints: AdminConstraint.new
 
   # In case people try the wrong URL
   get '/group/:id', to: redirect('/groups/%{id}')
