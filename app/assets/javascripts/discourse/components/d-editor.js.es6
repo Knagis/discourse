@@ -13,6 +13,12 @@ function getHead(head, prev) {
   }
 }
 
+const OP = {
+  NONE: 0,
+  REMOVED: 1,
+  ADDED: 2
+};
+
 const _createCallbacks = [];
 
 function Toolbar() {
@@ -119,15 +125,23 @@ Toolbar.prototype.addButton = function(button) {
   if (button.shortcut) {
     const mac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
     const mod = mac ? 'Meta' : 'Ctrl';
-    createdButton.title = `${title} (${mod}+${button.shortcut})`;
+    var shortcutTitle = `${mod}+${button.shortcut}`;
 
     // Mac users are used to glyphs for shortcut keys
     if (mac) {
-      createdButton.title = createdButton.title.replace('Shift', "\u21E7")
-                                               .replace('Meta', "\u2318")
-                                               .replace('Alt', "\u2325")
-                                               .replace(/\+/g, '');
+      shortcutTitle = shortcutTitle
+          .replace('Shift', "\u21E7")
+          .replace('Meta', "\u2318")
+          .replace('Alt', "\u2325")
+          .replace(/\+/g, '');
+    } else {
+      shortcutTitle = shortcutTitle
+          .replace('Shift', I18n.t('shortcut_modifier_key.shift'))
+          .replace('Ctrl', I18n.t('shortcut_modifier_key.ctrl'))
+          .replace('Alt', I18n.t('shortcut_modifier_key.alt'));
     }
+
+    createdButton.title = `${title} (${shortcutTitle})`;
 
     this.shortcuts[`${mod}+${button.shortcut}`.toLowerCase()] = createdButton;
   } else {
@@ -151,6 +165,7 @@ export default Ember.Component.extend({
   insertLinkHidden: true,
   link: '',
   lastSel: null,
+  _mouseTrap: null,
 
   @computed('placeholder')
   placeholderTranslated(placeholder) {
@@ -164,10 +179,12 @@ export default Ember.Component.extend({
 
     loadScript('defer/html-sanitizer-bundle').then(() => this.set('ready', true));
 
+    const mouseTrap = Mousetrap(this.$('.d-editor-input')[0]);
+
     const shortcuts = this.get('toolbar.shortcuts');
     Ember.keys(shortcuts).forEach(sc => {
       const button = shortcuts[sc];
-      Mousetrap(this.$('.d-editor-input')[0]).bind(sc, () => {
+      mouseTrap.bind(sc, () => {
         this.send(button.action, button);
         return false;
       });
@@ -182,15 +199,16 @@ export default Ember.Component.extend({
     this.appEvents.on('composer:insert-text', text => {
       this._addText(this._getSelected(), text);
     });
+
+    this._mouseTrap = mouseTrap;
   },
 
   @on('willDestroyElement')
   _shutDown() {
     this.appEvents.off('composer:insert-text');
 
-    Ember.keys(this.get('toolbar.shortcuts')).forEach(sc => {
-      Mousetrap(this.$('.d-editor-input')[0]).unbind(sc);
-    });
+    const mouseTrap = this._mouseTrap;
+    Ember.keys(this.get('toolbar.shortcuts')).forEach(sc => mouseTrap.unbind(sc));
     this.$('.d-editor-preview').off('click.preview');
   },
 
@@ -203,6 +221,8 @@ export default Ember.Component.extend({
   },
 
   _updatePreview() {
+    if (this._state !== "inDOM") { return; }
+
     const value = this.get('value');
     const markdownOptions = this.get('markdownOptions') || {};
     markdownOptions.sanitize = true;
@@ -279,14 +299,20 @@ export default Ember.Component.extend({
     if (!this.get('ready')) { return; }
 
     const textarea = this.$('textarea.d-editor-input')[0];
+    const value = textarea.value;
     const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
+    let end = textarea.selectionEnd;
 
-    const value = textarea.value.substring(start, end);
-    const pre = textarea.value.slice(0, start);
-    const post = textarea.value.slice(end);
+    // Windows selects the space after a word when you double click
+    while (end > start && /\s/.test(value.charAt(end-1))) {
+      end--;
+    }
 
-    return { start, end, value, pre, post };
+    const selVal = value.substring(start, end);
+    const pre = value.slice(0, start);
+    const post = value.slice(end);
+
+    return { start, end, value: selVal, pre, post };
   },
 
   _selectText(from, length) {
@@ -295,6 +321,37 @@ export default Ember.Component.extend({
       textarea.selectionStart = from;
       textarea.selectionEnd = textarea.selectionStart + length;
     });
+  },
+
+  // perform the same operation over many lines of text
+  _getMultilineContents(lines, head, hval, hlen, tail, tlen) {
+    let operation = OP.NONE;
+
+    return lines.map(l => {
+      if (l.length === 0) { return l; }
+
+      if (operation !== OP.ADDED &&
+          (l.slice(0, hlen) === hval && tlen === 0 || l.slice(-tlen) === tail)) {
+        operation = OP.REMOVED;
+        if (tlen === 0) {
+          const result = l.slice(hlen);
+          [hval, hlen] = getHead(head, hval);
+          return result;
+        } else if (l.slice(-tlen) === tail) {
+          const result = l.slice(hlen, -tlen);
+          [hval, hlen] = getHead(head, hval);
+          return result;
+        }
+      } else if (operation === OP.NONE) {
+        operation = OP.ADDED;
+      } else if (operation === OP.REMOVED) {
+        return l;
+      }
+
+      const result = `${hval}${l}${tail}`;
+      [hval, hlen] = getHead(head, hval);
+      return result;
+    }).join("\n");
   },
 
   _applySurround(sel, head, tail, exampleKey) {
@@ -317,24 +374,7 @@ export default Ember.Component.extend({
         this.set('value', `${pre.slice(0, -hlen)}${sel.value}${post.slice(tlen)}`);
         this._selectText(sel.start - hlen, sel.value.length);
       } else {
-        const contents = lines.map(l => {
-          if (l.length === 0) { return l; }
-
-          if (l.slice(0, hlen) === hval && tlen === 0 || l.slice(-tlen) === tail) {
-            if (tlen === 0) {
-              const result = l.slice(hlen);
-              [hval, hlen] = getHead(head, hval);
-              return result;
-            } else if (l.slice(-tlen) === tail) {
-              const result = l.slice(hlen, -tlen);
-              [hval, hlen] = getHead(head, hval);
-              return result;
-            }
-          }
-          const result = `${hval}${l}${tail}`;
-          [hval, hlen] = getHead(head, hval);
-          return result;
-        }).join("\n");
+        const contents = this._getMultilineContents(lines, head, hval, hlen, tail, tlen);
 
         this.set('value', `${pre}${contents}${post}`);
         if (lines.length === 1 && tlen > 0) {
@@ -372,6 +412,7 @@ export default Ember.Component.extend({
     const insert = `${sel.pre}${text}`;
     this.set('value', `${insert}${sel.post}`);
     this._selectText(insert.length, 0);
+    Ember.run.once("afterRender", () => { $("textarea.d-editor-input").focus(); } );
   },
 
   actions: {
@@ -398,16 +439,22 @@ export default Ember.Component.extend({
 
     insertLink() {
       const link = this.get('link');
+      const sel = this._lastSel;
 
       if (Ember.isEmpty(link)) { return; }
       const m = / "([^"]+)"/.exec(link);
       if (m && m.length === 2) {
         const description = m[1];
         const remaining = link.replace(m[0], '');
-        this._addText(this._lastSel, `[${description}](${remaining})`);
+        this._addText(sel, `[${description}](${remaining})`);
       } else {
-        const selectedValue = this._lastSel.value || link;
-        this._addText(this._lastSel, `[${selectedValue}](${link})`);
+        if (sel.value) {
+          this._addText(sel, `[${sel.value}](${link})`);
+        } else {
+          const desc = I18n.t('composer.link_description');
+          this._addText(sel, `[${desc}](${link})`);
+          this._selectText(sel.start + 1, desc.length);
+        }
       }
 
       this.set('link', '');
