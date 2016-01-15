@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'rails_helper'
 
 describe ListController do
 
@@ -81,6 +81,26 @@ describe ListController do
         end
 
         it { is_expected.to respond_with(:success) }
+      end
+
+      context 'with a link that has a parent slug, slug and id in its path' do
+        let(:child_category) { Fabricate(:category, parent_category: category) }
+
+        context "with valid slug" do
+          before do
+            xhr :get, :category_latest, parent_category: category.slug, category: child_category.slug, id: child_category.id
+          end
+
+          it { is_expected.to redirect_to(child_category.url) }
+        end
+
+        context "with invalid slug" do
+          before do
+            xhr :get, :category_latest, parent_category: 'random slug', category: 'random slug', id: child_category.id
+          end
+
+          it { is_expected.to redirect_to(child_category.url) }
+        end
       end
 
       context 'another category exists with a number at the beginning of its name' do

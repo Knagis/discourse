@@ -35,6 +35,8 @@ class User < ActiveRecord::Base
   has_many :topic_links, dependent: :destroy
   has_many :uploads
   has_many :warnings
+  has_many :user_archived_messages, dependent: :destroy
+
 
   has_one :user_avatar, dependent: :destroy
   has_one :facebook_user_info, dependent: :destroy
@@ -139,10 +141,6 @@ class User < ActiveRecord::Base
 
   def self.username_length
     SiteSetting.min_username_length.to_i..SiteSetting.max_username_length.to_i
-  end
-
-  def custom_groups
-    groups.where(automatic: false, visible: true)
   end
 
   def self.username_available?(username)
@@ -560,7 +558,7 @@ class User < ActiveRecord::Base
   # Takes into account admin, etc.
   def has_trust_level?(level)
     raise "Invalid trust level #{level}" unless TrustLevel.valid?(level)
-    admin? || moderator? || TrustLevel.compare(trust_level, level)
+    admin? || moderator? || staged? || TrustLevel.compare(trust_level, level)
   end
 
   # a touch faster than automatic
@@ -1093,6 +1091,7 @@ end
 #  edit_history_public           :boolean          default(FALSE), not null
 #  trust_level_locked            :boolean          default(FALSE), not null
 #  staged                        :boolean          default(FALSE), not null
+#  automatically_unpin_topics    :boolean          default(TRUE)
 #
 # Indexes
 #

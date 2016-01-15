@@ -23,6 +23,7 @@ class UsersController < ApplicationController
                                                             :send_activation_email,
                                                             :authorize_email,
                                                             :password_reset,
+                                                            :confirm_email_token,
                                                             :admin_login]
 
   def index
@@ -31,11 +32,12 @@ class UsersController < ApplicationController
   def show
     raise Discourse::InvalidAccess if SiteSetting.hide_user_profiles_from_public && !current_user
 
-    @user = fetch_user_from_params
+    @user = fetch_user_from_params(include_inactive: current_user.try(:staff?))
     user_serializer = UserSerializer.new(@user, scope: guardian, root: 'user')
-    if params[:stats].to_s == "false"
-      user_serializer.omit_stats = true
-    end
+
+    # TODO remove this options from serializer
+    user_serializer.omit_stats = true
+
     topic_id = params[:include_post_count_for].to_i
     if topic_id != 0
       user_serializer.topic_post_count = {topic_id => Post.where(topic_id: topic_id, user_id: @user.id).count }
@@ -201,12 +203,26 @@ class UsersController < ApplicationController
   end
 
   def is_local_username
-    users = params[:usernames]
-    users = [params[:username]] if users.blank?
-    users.each(&:downcase!)
+    usernames = params[:usernames]
+    usernames = [params[:username]] if usernames.blank?
+    usernames.each(&:downcase!)
 
-    result = User.where(username_lower: users).pluck(:username_lower)
-    render json: {valid: result}
+    groups = Group.where(name: usernames).pluck(:name)
+    mentionable_groups =
+      if current_user
+        Group.mentionable(current_user)
+          .where(name: usernames)
+          .pluck(:name, :user_count)
+          .map{ |name,user_count| {name: name, user_count: user_count} }
+      end
+
+    usernames -= groups
+
+    result = User.where(staged: false)
+                 .where(username_lower: usernames)
+                 .pluck(:username_lower)
+
+    render json: {valid: result, valid_groups: groups, mentionable_groups: mentionable_groups}
   end
 
   def render_available_true
@@ -340,7 +356,12 @@ class UsersController < ApplicationController
     expires_now
 
     if EmailToken.valid_token_format?(params[:token])
-      @user = EmailToken.confirm(params[:token])
+      if request.put?
+        @user = EmailToken.confirm(params[:token])
+      else
+        email_token = EmailToken.confirmable(params[:token])
+        @user = email_token.try(:user)
+      end
 
       if @user
         session["password-#{params[:token]}"] = @user.id
@@ -370,6 +391,12 @@ class UsersController < ApplicationController
       end
     end
     render layout: 'no_ember'
+  end
+
+  def confirm_email_token
+    expires_now
+    EmailToken.confirm(params[:token])
+    render json: success_json
   end
 
   def logon_after_password_reset
@@ -537,7 +564,17 @@ class UsersController < ApplicationController
     to_render = { users: results.as_json(only: user_fields, methods: [:avatar_template]) }
 
     if params[:include_groups] == "true"
-      to_render[:groups] = Group.search_group(term, current_user).map { |m| { name: m.name, usernames: m.usernames.split(",") } }
+      to_render[:groups] = Group.search_group(term).map do |m|
+        {name: m.name, usernames: []}
+      end
+    end
+
+    if params[:include_mentionable_groups] == "true" && current_user
+      to_render[:groups] = Group.mentionable(current_user)
+                                .where("name ILIKE :term_like", term_like: "#{term}%")
+                                .map do |m|
+        {name: m.name, usernames: []}
+      end
     end
 
     render json: to_render
@@ -618,7 +655,7 @@ class UsersController < ApplicationController
   end
 
   def staff_info
-    @user = fetch_user_from_params
+    @user = fetch_user_from_params(include_inactive: true)
     guardian.ensure_can_see_staff_info!(@user)
 
     result = {}

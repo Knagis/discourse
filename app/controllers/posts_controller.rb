@@ -305,9 +305,9 @@ class PostsController < ApplicationController
   end
 
   def wiki
-    guardian.ensure_can_wiki!
-
     post = find_post_from_params
+    guardian.ensure_can_wiki!(post)
+
     post.revise(current_user, { wiki: params[:wiki] })
 
     render nothing: true
@@ -506,6 +506,14 @@ class PostsController < ApplicationController
     result[:ip_address] = request.remote_ip
     result[:user_agent] = request.user_agent
     result[:referrer] = request.env["HTTP_REFERER"]
+
+    if usernames = result[:target_usernames]
+      usernames = usernames.split(",")
+      groups = Group.mentionable(current_user).where('name in (?)', usernames).pluck('name')
+      usernames -= groups
+      result[:target_usernames] = usernames.join(",")
+      result[:target_group_names] = groups.join(",")
+    end
 
     result
   end
