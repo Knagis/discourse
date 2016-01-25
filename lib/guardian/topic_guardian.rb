@@ -22,6 +22,9 @@ module TopicGuardian
     # No users can create posts on deleted topics
     return false if topic.trashed?
 
+    # if anonymous emails are allowed in the category, users can see their own topics
+    return true if authenticated? && topic.category && topic.category.email_in_allow_strangers? && topic.first_post.user_id == @user.id
+
     is_staff? || (authenticated? && user.has_trust_level?(TrustLevel[4])) || (not(topic.closed? || topic.archived? || topic.trashed?) && can_create_post?(topic))
   end
 
@@ -67,6 +70,9 @@ module TopicGuardian
       return authenticated? &&
              topic.all_allowed_users.where(id: @user.id).exists?
     end
+
+    # if anonymous emails are allowed in the category, users can see their own topics
+    return true if authenticated? && topic.category && topic.category.email_in_allow_strangers && topic.first_post.user_id == @user.id
 
     # not secure, or I can see it
     !topic.read_restricted_category? || can_see_category?(topic.category)
