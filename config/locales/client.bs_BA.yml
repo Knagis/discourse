@@ -94,12 +94,12 @@ bs_BA:
           few: "Prije par godina"
           other: "%{count} godine/a prije"
     share:
-      topic: 'podjeli link ka ovoj temi'
-      post: 'podjeli link ka ovom postu #%{postNumber}'
+      topic: 'podijeli link ka ovoj temi'
+      post: 'podijeli link ka ovom postu #%{postNumber}'
       close: 'zatvori'
-      twitter: 'podjeli link na Twitteru'
-      facebook: 'podjeli link na Facebooku'
-      google+: 'podjeli link na Google+'
+      twitter: 'podijeli link na Twitteru'
+      facebook: 'podijeli link na Facebook-u'
+      google+: 'podijeli link na Google+'
       email: 'pošalji ovaj link na email'
     topic_admin_menu: "topic admin actions"
     edit: 'izmjeni naslov i kategoriju ove teme'
@@ -500,7 +500,6 @@ bs_BA:
     close: "Zatvori"
     assets_changed_confirm: "Ovaj sajt je upravo unaprijeđen. Osvježi stranicu za novu verziju?"
     read_only_mode:
-      enabled: "An administrator enabled read-only mode. You can continue to browse the site but interactions may not work."
       login_disabled: "Login is disabled while the site is in read only mode."
     learn_more: "learn more..."
     year: 'godina'
@@ -516,8 +515,8 @@ bs_BA:
     last_post: Zadnji post
     summary:
       enabled_description: "You're viewing a summary of this topic: the most interesting posts as determined by the community."
-      description: "There are <b>{{count}}</b> replies."
-      description_time: "There are <b>{{count}}</b> replies with an estimated read time of <b>{{readingTime}} minutes</b>."
+      description: "There are <b>{{replyCount}}</b> replies."
+      description_time: "There are <b>{{replyCount}}</b> replies with an estimated read time of <b>{{readingTime}} minutes</b>."
       enable: 'Summarize This Topic'
       disable: 'Show All Posts'
     deleted_filter:
@@ -911,8 +910,6 @@ bs_BA:
         no_value: "Ne, sačuvaj"
         yes_value: "Da, otkaži"
       via_email: "this post arrived via email"
-      wiki:
-        about: "this post is a wiki; basic users can edit it"
       archetypes:
         save: 'Save Options'
       controls:
@@ -1387,9 +1384,8 @@ bs_BA:
             name: 'wiki'
             description: "Base color used for the background of wiki posts."
       email:
-        title: "Email"
         settings: "Settings"
-        all: "All"
+        preview_digest: "Pregled Sajta"
         sending_test: "Sending test Email..."
         test_error: "There was a problem sending the test email. Please double-check your mail settings, verify that your host is not blocking mail connections, and try again."
         sent: "Sent"
@@ -1403,7 +1399,6 @@ bs_BA:
         send_test: "Send Test Email"
         sent_test: "sent!"
         delivery_method: "Delivery Method"
-        preview_digest: "Pregled Sajta"
         refresh: "Refresh"
         format: "Format"
         html: "html"

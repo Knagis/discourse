@@ -370,6 +370,57 @@ describe Guardian do
       end
     end
 
+    describe 'a Category' do
+
+      it 'allows public categories' do
+        public_category = build(:category, read_restricted: false)
+        expect(Guardian.new.can_see?(public_category)).to be_truthy
+      end
+
+      it 'correctly handles secure categories' do
+        normal_user = build(:user)
+        staged_user = build(:user, staged: true)
+        admin_user  = build(:user, admin: true)
+
+        secure_category = build(:category, read_restricted: true)
+        expect(Guardian.new(normal_user).can_see?(secure_category)).to be_falsey
+        expect(Guardian.new(staged_user).can_see?(secure_category)).to be_falsey
+        expect(Guardian.new(admin_user).can_see?(secure_category)).to be_truthy
+
+        secure_category = build(:category, read_restricted: true, email_in: "foo@bar.com")
+        expect(Guardian.new(normal_user).can_see?(secure_category)).to be_falsey
+        expect(Guardian.new(staged_user).can_see?(secure_category)).to be_falsey
+        expect(Guardian.new(admin_user).can_see?(secure_category)).to be_truthy
+
+        secure_category = build(:category, read_restricted: true, email_in_allow_strangers: true)
+        expect(Guardian.new(normal_user).can_see?(secure_category)).to be_falsey
+        expect(Guardian.new(staged_user).can_see?(secure_category)).to be_falsey
+        expect(Guardian.new(admin_user).can_see?(secure_category)).to be_truthy
+
+        secure_category = build(:category, read_restricted: true, email_in: "foo@bar.com", email_in_allow_strangers: true)
+        expect(Guardian.new(normal_user).can_see?(secure_category)).to be_falsey
+        expect(Guardian.new(staged_user).can_see?(secure_category)).to be_truthy
+        expect(Guardian.new(admin_user).can_see?(secure_category)).to be_truthy
+      end
+
+      it 'allows members of an authorized group' do
+        user = Fabricate(:user)
+        group = Fabricate(:group)
+
+        secure_category = Fabricate(:category)
+        secure_category.set_permissions(group => :readonly)
+        secure_category.save
+
+        expect(Guardian.new(user).can_see?(secure_category)).to be_falsey
+
+        group.add(user)
+        group.save
+
+        expect(Guardian.new(user).can_see?(secure_category)).to be_truthy
+      end
+
+    end
+
     describe 'a Topic' do
       it 'allows non logged in users to view topics' do
         expect(Guardian.new.can_see?(topic)).to be_truthy
@@ -510,7 +561,7 @@ describe Guardian do
 
         it 'is true if the author has public edit history' do
           public_post_revision = Fabricate(:post_revision)
-          public_post_revision.post.user.edit_history_public = true
+          public_post_revision.post.user.user_option.edit_history_public = true
           expect(Guardian.new.can_see?(public_post_revision)).to be_truthy
         end
       end
@@ -533,7 +584,7 @@ describe Guardian do
 
         it 'is true if the author has public edit history' do
           public_post_revision = Fabricate(:post_revision)
-          public_post_revision.post.user.edit_history_public = true
+          public_post_revision.post.user.user_option.edit_history_public = true
           expect(Guardian.new.can_see?(public_post_revision)).to be_truthy
         end
       end
@@ -991,6 +1042,11 @@ describe Guardian do
           topic.archetype = 'private_message'
           expect(Guardian.new(trust_level_3).can_edit?(topic)).to eq(false)
         end
+
+        it 'returns false at trust level 4' do
+          topic.archetype = 'private_message'
+          expect(Guardian.new(trust_level_4).can_edit?(topic)).to eq(false)
+        end
       end
 
       context 'archived' do
@@ -1004,8 +1060,12 @@ describe Guardian do
           expect(Guardian.new(admin).can_edit?(archived_topic)).to be_truthy
         end
 
-        it 'returns true at trust level 3' do
-          expect(Guardian.new(trust_level_3).can_edit?(archived_topic)).to be_truthy
+        it 'returns true at trust level 4' do
+          expect(Guardian.new(trust_level_4).can_edit?(archived_topic)).to be_truthy
+        end
+
+        it 'returns false at trust level 3' do
+          expect(Guardian.new(trust_level_3).can_edit?(archived_topic)).to be_falsey
         end
 
         it 'returns false as a topic creator' do

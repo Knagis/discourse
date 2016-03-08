@@ -81,6 +81,8 @@ ja:
           other: "%{count} 月後"
         x_years:
           other: "%{count} 年後"
+      previous_month: '前月'
+      next_month: '来月'
     share:
       topic: 'このトピックのリンクをシェアする'
       post: 'ポスト #%{postNumber}'
@@ -91,6 +93,19 @@ ja:
       email: 'メールでこのリンクを送る'
     topic_admin_menu: "トピック管理"
     emails_are_disabled: "全てのメールアドレスの送信が管理者によって無効化されています。全ての種類のメール通知は行われません"
+    s3:
+      regions:
+        us_east_1: "US East (N. Virginia)"
+        us_west_1: "US West (N. California)"
+        us_west_2: "US West (Oregon)"
+        us_gov_west_1: "AWS GovCloud (US)"
+        eu_west_1: "EU (Ireland)"
+        eu_central_1: "EU (Frankfurt)"
+        ap_southeast_1: "Asia Pacific (Singapore)"
+        ap_southeast_2: "Asia Pacific (Sydney)"
+        ap_northeast_1: "Asia Pacific (Tokyo)"
+        ap_northeast_2: "Asia Pacific (Seoul)"
+        sa_east_1: "South America (Sao Paulo)"
     edit: 'このトピックのタイトルとカテゴリを編集'
     not_implemented: "申し訳ありませんが、この機能はまだ実装されていません"
     no_value: "いいえ"
@@ -176,6 +191,7 @@ ja:
     saved: "保存しました"
     upload: "アップロード"
     uploading: "アップロード中..."
+    uploading_filename: "アップロード中 {{filename}}..."
     uploaded: "アップロードしました"
     enable: "有効にする"
     disable: "無効にする"
@@ -183,6 +199,7 @@ ja:
     revert: "戻す"
     failed: "失敗"
     switch_to_anon: "匿名モード"
+    switch_from_anon: "匿名モード停止"
     banner:
       close: "バナーを閉じる。"
       edit: "このバナーを編集 >>"
@@ -281,6 +298,7 @@ ja:
       category: "カテゴリ"
       reorder:
         title: "カテゴリを並び替える"
+        apply_all: "適用"
       posts: "ポスト"
       topics: "トピック"
       latest: "最新ポスト"
@@ -331,7 +349,6 @@ ja:
         not_supported: "申し訳ありません。そのブラウザは通知をサポートしていません。"
         perm_default: "通知をONにする"
         perm_denied_btn: "アクセス拒否"
-        perm_denied_expl: "通知へのアクセスを拒否されています。利用しているブラウザの通知を有効にし、完了したら、このボタンをクリックしてください。(デスクトップ: アドレスバーの左端のアイコン。 モバイル: \"サイト情報\")"
         disable: "通知を無効にする"
         currently_enabled: "(現在有効化されています)"
         enable: "通知を有効化"
@@ -376,6 +393,8 @@ ja:
         warnings_received: "注意"
       messages:
         all: "すべて"
+        inbox: "インボックス"
+        select_all: "全てを選択する"
       change_password:
         success: "(メールを送信しました)"
         in_progress: "(メールを送信中)"
@@ -474,6 +493,13 @@ ja:
       auto_track_options:
         never: "トラックしない"
         immediately: "今すぐ"
+        after_30_seconds: "30秒後"
+        after_1_minute: "1分後"
+        after_2_minutes: "2分後"
+        after_3_minutes: "3分後"
+        after_4_minutes: "4分後"
+        after_5_minutes: "5分後"
+        after_10_minutes: "10分後"
       invited:
         search: "招待履歴を検索するためにキーワードを入力してください..."
         title: "招待"
@@ -548,7 +574,6 @@ ja:
     logout: "ログアウトしました"
     refresh: "Refresh"
     read_only_mode:
-      enabled: "読み取り専用モードが有効になっています。サイトをブラウズすることは引き続き出来ますが、機能は動作しません。"
       login_disabled: "読み取り専用モードにされています。ログインできません。"
     learn_more: "より詳しく..."
     year: '年'
@@ -565,10 +590,12 @@ ja:
     last_reply_lowercase: 最新の回答
     replies_lowercase:
       other: 回答
+    signup_cta:
+      sign_up: "新しいアカウントを作成"
     summary:
       enabled_description: "トピックのまとめを表示されています。"
-      description: "<b>{{count}}</b> 返信があります。"
-      description_time: "全てを確認するのに <b>{{readingTime}} 分</b> 前後を要する <b>{{count}}</b> 個の回答があります。"
+      description: "<b>{{replyCount}}</b> 返信があります。"
+      description_time: "全てを確認するのに <b>{{readingTime}} 分</b> 前後を要する <b>{{replyCount}}</b> 個の回答があります。"
       enable: 'このトピックを要訳する'
       disable: '全ての投稿を表示する'
     deleted_filter:
@@ -645,7 +672,7 @@ ja:
     twitter: "Twitter"
     emoji_one: "Emoji One"
     composer:
-      emoji: "Emoji :smile:"
+      options: "オプション"
       add_warning: "これは公式の警告です。"
       posting_not_on_topic: "回答したいトピックはどれですか?"
       saving_draft_tip: "保存中..."
@@ -674,6 +701,7 @@ ja:
       edit_reason_placeholder: "編集する理由は何ですか?"
       show_edit_reason: "(編集理由を追加)"
       view_new_post: "新規ポストを見る。"
+      saving: "保存中"
       saved: "保存完了!"
       saved_draft: "編集中の投稿があります。選択すると再開します"
       uploading: "アップロード中..."
@@ -702,6 +730,7 @@ ja:
       hr_title: "水平線"
       help: "Markdown 編集のヘルプ"
       toggler: "編集パネルの表示/非表示"
+      modal_cancel: "キャンセル"
       admin_options_title: "このトピックの詳細設定"
       auto_close:
         label: "このトピックを自動的に終了する時間:"
@@ -749,6 +778,7 @@ ja:
       select_file: "ファイル選択"
       image_link: "イメージのリンク先"
     search:
+      select_all: "全てを選択する"
       title: "トピック、ポスト、ユーザ、カテゴリを探す"
       no_results: "何も見つかりませんでした。"
       no_more_results: "これ以上結果が見つかりませんでした。"
@@ -1052,8 +1082,6 @@ ja:
         no_value: "いいえ"
         yes_value: "はい"
       via_email: "メールで投稿されました。"
-      wiki:
-        about: "この投稿は「Wiki」である。ベーシックユーザが編集できます。"
       archetypes:
         save: '保存オプション'
       controls:
@@ -1340,9 +1368,19 @@ ja:
         title_in: "カテゴリ - {{categoryName}}"
         help: "カテゴリ毎に整理されたトピックを表示"
       unread:
+        title: "未読"
+        title_with_count:
+          other: "未読 ({{count}})"
         help: "未読ポストのあるトピック"
+        lower_title_with_count:
+          other: "{{count}} 未読"
       new:
+        lower_title_with_count:
+          other: "{{count}}件"
         lower_title: "新着"
+        title: "新規"
+        title_with_count:
+          other: "最新 ({{count}})"
         help: "最近投稿されたトピック"
       posted:
         title: "あなたのポスト"
@@ -1351,6 +1389,9 @@ ja:
         title: "ブックマーク"
         help: "ブックマークしたトピック"
       category:
+        title: "{{categoryName}}"
+        title_with_count:
+          other: "{{categoryName}} ({{count}})"
         help: "{{categoryName}} カテゴリの最新トピック"
       top:
         title: "トップ"
@@ -1689,9 +1730,8 @@ ja:
             name: 'wiki'
             description: "Wiki投稿の背景に使用する基本色"
       email:
-        title: "メール"
         settings: "設定"
-        all: "全て"
+        preview_digest: "ダイジェストのプレビュー"
         sending_test: "テストメールを送信中..."
         error: "<b>ERROR</b> - %{server_error}"
         test_error: "テストメールを送れませんでした。メール設定、またはホストをメールコネクションをブロックされていないようを確認してください。"
@@ -1706,7 +1746,6 @@ ja:
         send_test: "テストメールを送る"
         sent_test: "送信完了!"
         delivery_method: "送信方法"
-        preview_digest: "ダイジェストのプレビュー"
         refresh: "更新"
         format: "フォーマット"
         html: "html"
@@ -1714,6 +1753,10 @@ ja:
         last_seen_user: "ユーザが最後にサイトを訪れた日:"
         reply_key: "回答キー"
         skipped_reason: "スキップの理由"
+        incoming_emails:
+          error: "エラー"
+          filters:
+            error_placeholder: "エラー"
         logs:
           none: "ログなし"
           filters:
@@ -1732,6 +1775,7 @@ ja:
         ip_address: "IP"
         topic_id: "トピックID"
         post_id: "ポストID"
+        category_id: "カテゴリID"
         delete: '削除'
         edit: '編集'
         save: '保存'
@@ -1772,6 +1816,13 @@ ja:
             impersonate: "なりすまし"
             anonymize_user: "匿名ユーザ"
             roll_up: "IPブロックをロールアップ"
+            delete_category: "カテゴリを削除する"
+            block_user: "ユーザをブロック"
+            unblock_user: "ユーザをブロック解除"
+            grant_admin: "管理者権限を付与"
+            revoke_admin: "管理者権限を剥奪"
+            grant_moderation: "モデレータ権限を付与"
+            revoke_moderation: "モデレータ権限を剥奪"
         screened_emails:
           title: "ブロック対象アドレス"
           description: "新規アカウント作成時、次のメールアドレスからの登録をブロックする。"
@@ -1940,6 +1991,7 @@ ja:
         unlock_trust_level: "トラストレベルをアンロック"
         tl3_requirements:
           title: "トラストレベル3の条件"
+          table_title: "過去%{time_period} 日間に"
           value_heading: "値"
           requirement_heading: "条件"
           visits: "訪問"
@@ -2001,6 +2053,7 @@ ja:
           dropdown: "ドロップダウン"
       site_text:
         title: 'テキストコンテンツ'
+        edit: '編集'
       site_settings:
         show_overriden: '上書き部分のみ表示'
         title: '設定'
@@ -2100,6 +2153,8 @@ ja:
         name: "名前"
         image: "画像"
         delete_confirm: "Are you sure you want to delete the :%{name}: emoji?"
+      embedding:
+        edit: "編集"
       permalink:
         title: "パーマリンク"
         url: "URL"

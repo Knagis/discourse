@@ -100,6 +100,8 @@ pt_BR:
         x_years:
           one: "1 ano depois"
           other: "%{count} anos depois"
+      previous_month: 'Mês Anterior'
+      next_month: 'Próximo Mês'
     share:
       topic: 'compartilhe o link desse tópico'
       post: 'post #%{postNumber}'
@@ -110,6 +112,7 @@ pt_BR:
       email: 'enviar esse link para um email'
     action_codes:
       split_topic: "dividiu este tópico %{when}"
+      invited_user: "convidou %{who} %{when}"
       autoclosed:
         enabled: 'fechou %{when}'
         disabled: 'abriu %{when}'
@@ -130,6 +133,9 @@ pt_BR:
         disabled: 'desalistou %{when}'
     topic_admin_menu: "ações administrativas do tópico"
     emails_are_disabled: "Todo o envio de email foi globalmente desabilitado por algum administrador. Nenhum email de notificações de qualquer tipo será enviado."
+    s3:
+      regions:
+        sa_east_1: "América do Sul (São Paulo)"
     edit: 'edite o título e a categoria deste tópico'
     not_implemented: "Esse recurso ainda não foi implementado, desculpe!"
     no_value: "Não"
@@ -173,6 +179,7 @@ pt_BR:
       other: "{{count}} caracteres"
     suggested_topics:
       title: "Tópicos sugeridos"
+      pm_title: "Mensagens Sugeridas"
     about:
       simple_title: "Sobre"
       title: "Sobre %{title}"
@@ -294,6 +301,12 @@ pt_BR:
         one: "1 usuário"
         other: "%{count} usuários"
     groups:
+      empty:
+        posts: "Não há postagens por membros deste grupo."
+        members: "Não há membros neste grupo."
+        mentions: "Não há menção a este grupo."
+        messages: "Não há mensagens para este grupo."
+        topics: "Não há topicos por membros deste grupo."
       add: "Adicionar"
       selector_placeholder: "Adicionar membros"
       owner: "proprietário"
@@ -304,6 +317,7 @@ pt_BR:
       members: "Membros"
       posts: "Mensagens"
       alias_levels:
+        title: "Quem pode enviar mensagem e @mention a este grupo?"
         nobody: "Ninguém"
         only_admins: "Somente administradores"
         mods_and_admins: "Somente moderadores e Administradores"
@@ -312,6 +326,18 @@ pt_BR:
       trust_levels:
         title: "Nível de Confiança automaticamente concedido aos membros quando eles são incluídos"
         none: "Nenhum"
+      notifications:
+        watching:
+          description: "Você será notificado sobre toda nova postagem em toda mensagem, e uma contagem de novas mensagens será mostrada."
+        tracking:
+          title: "Rastreando"
+          description: "Você será notificado se alguém mencionar seu @name ou responder a você, e uma contagem de novas respostas será mostrada."
+        regular:
+          title: "Normal"
+          description: "Você será notificado se alguém mencionar seu @name ou responder a você."
+        muted:
+          title: "Mudo"
+          description: "Você será notificado sobre qualquer coisa sobre novos tópicos neste grupo."
     user_action_groups:
       '1': "Curtidas dadas"
       '2': "Curtidas recebidas"
@@ -330,6 +356,7 @@ pt_BR:
       all_subcategories: "todos"
       no_subcategory: "nenhum"
       category: "Categoria"
+      category_list: "Exibir lista de categorias."
       reorder:
         title: "Reordenar Categorias"
         title_long: "Reorganizar a lista de categorias"
@@ -391,7 +418,6 @@ pt_BR:
         not_supported: "Notificações não são suportadas nesse browser. Desculpe-nos."
         perm_default: "Habilitar Notificações"
         perm_denied_btn: "Permissão Negada"
-        perm_denied_expl: "Você negou permissões para as notificações. Utilize seu navegador para habilitar notificações, e depois, clique no botão. (Desktop: O ícone mais a esquerda da barra de endereços. Dispositivos Móveis: 'Configurações do Site')"
         disable: "Desativar Notificações"
         currently_enabled: "(atualmente ativado)"
         enable: "Ativar Notificações"
@@ -633,7 +659,6 @@ pt_BR:
     logout: "Você foi desconectado."
     refresh: "Atualizar"
     read_only_mode:
-      enabled: "O modo somente-leitura está habilitado. Você pode navegador mas as interações podem não funcionar."
       login_disabled: "Login é desativado enquanto o site está em modo de somente leitura."
     too_few_topics_and_posts_notice: "Vamos <a href='http://blog.discourse.org/2014/08/building-a-discourse-community/'>começar essa discussão!</a> Existem atualmente <strong>%{currentTopics} / %{requiredTopics}</strong> tópicos e <strong>%{currentPosts} / %{requiredPosts}</strong> mensagens. Novos visitantes precisam de algumas conversas para ler e responder."
     too_few_topics_notice: "Vamos <a href='http://blog.discourse.org/2014/08/building-a-discourse-community/'>começar essa discussão!</a> Existem atualmente <strong>%{currentTopics} / %{requiredTopics}</strong> tópicos. Novos visitantes precisam de algumas conversas para ler e responder."
@@ -663,8 +688,8 @@ pt_BR:
       value_prop: "Quando você cria uma conta, nós lembramos exatamente o que você leu, assim você sempre volta exatamente aonde estava. Você também recebe notificações, aqui e por e-mail, quando novas mensagens são feitas. E você pode curtir tópicos para compartilhar o amor. :heartbeat:"
     summary:
       enabled_description: "Você está vendo um sumário deste tópico: os posts mais interessantes conforme determinados pela comunidade."
-      description: "Há <b>{{count}}</b> respostas."
-      description_time: "Há <b>{{count}}</b> respostas com um tempo de leitura estimado de <b>{{readingTime}} minutos</b>."
+      description: "Há <b>{{replyCount}}</b> respostas."
+      description_time: "Há <b>{{replyCount}}</b> respostas com um tempo de leitura estimado de <b>{{readingTime}} minutos</b>."
       enable: 'Resumir Este Tópico'
       disable: 'Exibir Todas as Mensagens'
     deleted_filter:
@@ -748,7 +773,6 @@ pt_BR:
       ctrl: 'Ctrl'
       alt: 'Alt'
     composer:
-      emoji: "Emoji :smile:"
       more_emoji: "mais..."
       options: "Opções"
       whisper: "sussuro"
@@ -1230,8 +1254,6 @@ pt_BR:
         yes_value: "Sim, abandone"
       via_email: "post recebido via email"
       whisper: "esta mensagem é um sussuro privado para moderadores"
-      wiki:
-        about: "essa resposta é uma wiki; usuários básicos podem editá-lo"
       archetypes:
         save: 'Salvar as opções'
       controls:
@@ -1942,9 +1964,8 @@ pt_BR:
             name: 'wiki'
             description: "Cor base usada para o fundo em postagens do wiki."
       email:
-        title: "Email"
         settings: "Settings"
-        all: "Todas"
+        preview_digest: "Preview Digest"
         sending_test: "Enviando e-mail de teste..."
         error: "<b>ERRO</b> - %{server_error}"
         test_error: "Houve um problema ao enviar o email de teste. Por favor, verifique as configurações de email, se o seu provedor não está bloqueando conexões de email e tente novamente."
@@ -1959,7 +1980,6 @@ pt_BR:
         send_test: "Enviar email de teste"
         sent_test: "enviado!"
         delivery_method: "Delivery Method"
-        preview_digest: "Preview Digest"
         preview_digest_desc: "Pré-visualizar o conteúdo do e-mail de resumo enviado para usuários inativos."
         refresh: "Atualizar"
         format: "Formato"

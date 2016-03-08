@@ -12,6 +12,24 @@ describe PostAction do
   let(:second_post) { Fabricate(:post, topic_id: post.topic_id) }
   let(:bookmark) { PostAction.new(user_id: post.user_id, post_action_type_id: PostActionType.types[:bookmark] , post_id: post.id) }
 
+  describe "rate limits" do
+
+    it "limits redo/undo" do
+
+      RateLimiter.stubs(:disabled?).returns(false)
+
+      PostAction.act(eviltrout, post, PostActionType.types[:like])
+      PostAction.remove_act(eviltrout, post, PostActionType.types[:like])
+      PostAction.act(eviltrout, post, PostActionType.types[:like])
+      PostAction.remove_act(eviltrout, post, PostActionType.types[:like])
+
+      expect {
+        PostAction.act(eviltrout, post, PostActionType.types[:like])
+      }.to raise_error
+
+    end
+  end
+
   describe "messaging" do
 
     it "doesn't generate title longer than 255 characters" do
@@ -43,8 +61,11 @@ describe PostAction do
       expect(topic_user_ids).to include(codinghorror.id)
       expect(topic_user_ids).to include(mod.id)
 
-      # Notification level should be "Watching" for everyone
-      expect(topic.topic_users(true).map(&:notification_level).uniq).to eq([TopicUser.notification_levels[:watching]])
+      expect(topic.topic_users.where(user_id: mod.id)
+              .pluck(:notification_level).first).to eq(TopicUser.notification_levels[:tracking])
+
+      expect(topic.topic_users.where(user_id: codinghorror.id)
+              .pluck(:notification_level).first).to eq(TopicUser.notification_levels[:watching])
 
       # reply to PM should not clear flag
       PostCreator.new(mod, topic_id: posts[0].topic_id, raw: "This is my test reply to the user, it should clear flags").create
@@ -461,8 +482,6 @@ describe PostAction do
   end
 
   it "prevents user to act twice at the same time" do
-    post = Fabricate(:post)
-
     # flags are already being tested
     all_types_except_flags = PostActionType.types.except(PostActionType.flag_types)
     all_types_except_flags.values.each do |action|

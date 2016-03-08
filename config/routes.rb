@@ -7,9 +7,9 @@ require_dependency "permalink_constraint"
 
 # This used to be User#username_format, but that causes a preload of the User object
 # and makes Guard not work properly.
-USERNAME_ROUTE_FORMAT = /[A-Za-z0-9\_.\-]+/ unless defined? USERNAME_ROUTE_FORMAT
+USERNAME_ROUTE_FORMAT = /[\w.\-]+/ unless defined? USERNAME_ROUTE_FORMAT
 
-BACKUP_ROUTE_FORMAT = /[a-zA-Z0-9\-_]*\d{4}(-\d{2}){2}-\d{6}\.(tar\.gz|t?gz)/i unless defined? BACKUP_ROUTE_FORMAT
+BACKUP_ROUTE_FORMAT = /[\w.\-]+\.(tar\.gz|tgz)/i unless defined? BACKUP_ROUTE_FORMAT
 
 Discourse::Application.routes.draw do
 
@@ -73,8 +73,7 @@ Discourse::Application.routes.draw do
     get "groups/:type" => "groups#show", constraints: AdminConstraint.new
     get "groups/:type/:id" => "groups#show", constraints: AdminConstraint.new
 
-    get "users/:id.json" => 'users#show' , id: USERNAME_ROUTE_FORMAT, defaults: {format: 'json'}
-    resources :users, id: USERNAME_ROUTE_FORMAT do
+    resources :users, id: USERNAME_ROUTE_FORMAT, except: [:show] do
       collection do
         get "list/:query" => "users#index"
         get "ip-info" => "users#ip_info"
@@ -109,6 +108,8 @@ Discourse::Application.routes.draw do
       get "tl3_requirements"
       put "anonymize"
     end
+    get "users/:id.json" => 'users#show', defaults: {format: 'json'}
+    get 'users/:id/:username' => 'users#show'
 
 
     post "users/sync_sso" => "users#sync_sso", constraints: AdminConstraint.new
@@ -123,6 +124,8 @@ Discourse::Application.routes.draw do
         get "skipped"
         get "received"
         get "rejected"
+        get "/incoming/:id/raw" => "email#raw_email"
+        get "/incoming/:id" => "email#incoming"
         get "preview-digest" => "email#preview_digest"
         post "handle_mail"
       end

@@ -47,6 +47,23 @@ en:
   disable_remote_images_download_reason: "Remote images download was disabled because there wasn't enough disk space available."
   anonymous: "Anonymous"
 
+  emails:
+    incoming:
+      default_subject: "Incoming email from %{email}"
+      errors:
+        empty_email_error: "Happens when the raw mail we received was blank."
+        no_message_id_error: "Happens when the mail has no 'Message-Id' header."
+        auto_generated_email_error: "Happens when the 'precedence' header is set to: list, junk, bulk or auto_reply, or when any other header contains: auto-submitted, auto-replied or auto-generated."
+        no_body_detected_error: "Happens when we couldn't extract a body and there was no attachments."
+        inactive_user_error: "Happens when the sender is not active."
+        blocked_user_error: "Happens when the sender has been blocked."
+        bad_destination_address: "Happens when none of the email addresses in To/Cc/Bcc fields matched a configured incoming email address."
+        strangers_not_allowed_error: "Happens when a user tried to create a new topic in a category they're not a member of."
+        insufficient_trust_level_error: "Happens when a user tried to create a new topic in a category they don't have the required trust level for."
+        reply_user_not_matching_error: "Happens when a reply came in from a different email address the notification was sent to."
+        topic_not_found_error: "Happens when a reply came in but the related topic has been deleted."
+        topic_closed_error: "Happens when a reply came in but the related topic has been closed."
+
   errors: &errors
     format: ! '%{attribute} %{message}'
     messages:
@@ -184,6 +201,7 @@ en:
   rss_description:
     latest: "Latest topics"
     hot: "Hot topics"
+    top: "Top topics"
     posts: "Latest posts"
   too_late_to_edit: "That post was created too long ago. It can no longer be edited or deleted."
 
@@ -357,6 +375,7 @@ en:
       self_parent: "A subcategory's parent cannot be itself"
       depth: "You can't nest a subcategory under another"
       email_in_already_exist: "Incoming email address '%{email_in}' is already in use for '%{category_name}' category."
+      invalid_email_in: "'%{email_in}' is not a valid email address."
     cannot_delete:
       uncategorized: "Can't delete Uncategorized"
       has_subcategories: "Can't delete this category because it has sub-categories."
@@ -364,6 +383,7 @@ en:
         one: "Can't delete this category because is has 1 topic. Oldest topic is %{topic_link}."
         other: "Can't delete this category because it has %{count} topics. Oldest topic is %{topic_link}."
       topic_exists_no_oldest: "Can't delete this category because topic count is %{count}."
+    uncategorized_description: "Topics that don't need a category, or don't fit into any other existing category."
   trust_levels:
     newuser:
       title: "new user"
@@ -386,11 +406,15 @@ en:
       first_day_topics_per_day: "You've reached the maximum number of topics a new user can create on their first day. Please wait %{time_left} before trying again."
       create_topic: "You're creating topics too quickly. Please wait %{time_left} before trying again."
       create_post: "You're replying too quickly. Please wait %{time_left} before trying again."
+      delete_post: "You're deleting posts too quickly. Please wait %{time_left} before trying again."
       topics_per_day: "You've reached the maximum number of new topics today. Please wait %{time_left} before trying again."
       pms_per_day: "You've reached the maximum number of messages today. Please wait %{time_left} before trying again."
       create_like: "You've reached the maximum number of likes today. Please wait %{time_left} before trying again."
       create_bookmark: "You've reached the maximum number of bookmarks today. Please wait %{time_left} before trying again."
       edit_post: "You've reached the maximun number of edits today. Please wait %{time_left} before trying again."
+      live_post_counts: "You've asking for live post counts too quickly. Please wait %{time_left} before trying again."
+      unsubscribe_via_email: "You've reached the maximum number of unsubscribe via email today. Please wait %{time_left} before trying again."
+      topic_invitations_per_day: "You've reached the maximum number of topic invitations today. Please wait %{time_left} before trying again."
 
     hours:
       one: "1 hour"
@@ -764,7 +788,6 @@ en:
     min_search_term_length: "Minimum valid search term length in characters"
     search_tokenize_chinese_japanese_korean: "Force search to tokenize Chinese/Japanese/Korean even on non CJK sites"
     allow_uncategorized_topics: "Allow topics to be created without a category. WARNING: If there are any uncategorized topics, you must recategorize them before turning this off."
-    uncategorized_description: "The description of the uncategorized category. Leave blank for no description."
     allow_duplicate_topic_titles: "Allow topics with identical, duplicate titles."
     unique_posts_mins: "How many minutes before a user can make a post with the same content again"
     educate_until_posts: "When the user starts typing their first (n) new posts, show the pop-up new user education panel in the composer."
@@ -860,9 +883,6 @@ en:
     suppress_reply_directly_above: "Don't show the expandable in-reply-to on a post when there is only a single reply directly above this post."
     suppress_reply_when_quoting: "Don't show the expandable in-reply-to on a post when post quotes reply."
     max_reply_history: "Maximum number of replies to expand when expanding in-reply-to"
-
-    experimental_reply_expansion: "Hide intermediate replies when expanding a reply to (experimental)"
-
     topics_per_period_in_top_summary: "Number of top topics shown in the default top topics summary."
     topics_per_period_in_top_page: "Number of top topics shown on the expanded 'Show More' top topics."
     redirect_users_to_top_page: "Automatically redirect new and long absent users to the top page."
@@ -899,6 +919,7 @@ en:
     reserved_usernames: "Usernames for which signup is not allowed."
 
     min_password_length: "Minimum password length."
+    min_admin_password_length: "Minimum password length for Admin."
     block_common_passwords: "Don't allow passwords that are in the 10,000 most common passwords."
 
     enable_sso: "Enable single sign on via an external site (WARNING: USERS' EMAIL ADDRESSES *MUST* BE VALIDATED BY THE EXTERNAL SITE!)"
@@ -924,6 +945,10 @@ en:
     twitter_consumer_key: "Consumer key for Twitter authentication, registered at http://dev.twitter.com"
     twitter_consumer_secret: "Consumer secret for Twitter authentication, registered at http://dev.twitter.com"
 
+    enable_instagram_logins: "Enable Instagram authentication, requires instagram_consumer_key and instagram_consumer_secret"
+    instagram_consumer_key: "Consumer key for Instagram authentication"
+    instagram_consumer_secret: "Consumer secret Instagram authentication"
+
     enable_facebook_logins: "Enable Facebook authentication, requires facebook_app_id and facebook_app_secret"
     facebook_app_id: "App id for Facebook authentication, registered at https://developers.facebook.com/apps"
     facebook_app_secret: "App secret for Facebook authentication, registered at https://developers.facebook.com/apps"
@@ -938,6 +963,7 @@ en:
     backup_frequency: "How frequently we create a site backup, in days."
     enable_s3_backups: "Upload backups to S3 when complete. IMPORTANT: requires valid S3 credentials entered in Files settings."
     s3_backup_bucket: "The remote bucket to hold backups. WARNING: Make sure it is a private bucket."
+    s3_disable_cleanup: "Disable the removal of backups from S3 when removed locally."
     backup_time_of_day: "Time of day UTC when the backup should occur."
     backup_with_uploads: "Include uploads in scheduled backups. Disabling this will only backup the database."
 
@@ -963,6 +989,9 @@ en:
     max_invites_per_day: "Maximum number of invites a user can send per day."
     max_topic_invitations_per_day: "Maximum number of topic invitations a user can send per day."
 
+    alert_admins_if_errors_per_minute: "Number of errors per minute in order to trigger an admin alert. A value of 0 disables this feature. NOTE: requires restart."
+    alert_admins_if_errors_per_hour: "Number of errors per hour in order to trigger an admin alert. A value of 0 disables this feature. NOTE: requires restart."
+
     suggested_topics: "Number of suggested topics shown at the bottom of a topic."
     limit_suggested_to_category: "Only show topics from the current category in suggested topics."
 
@@ -984,6 +1013,8 @@ en:
     external_system_avatars_url: "URL of the external system avatars service. Allowed substitions are {username} {first_letter} {color} {size}"
 
     default_opengraph_image_url: "URL of the default opengraph image."
+
+    allow_all_attachments_for_group_messages: "Allow all email attachments for group messages."
 
     enable_flash_video_onebox: "Enable embedding of swf and flv (Adobe Flash) links in oneboxes. WARNING: may introduce security risks."
 
@@ -1034,6 +1065,7 @@ en:
     create_thumbnails: "Create thumbnails and lightbox images that are too large to fit in a post."
 
     email_time_window_mins: "Wait (n) minutes before sending any notification emails, to give users a chance to edit and finalize their posts."
+    private_email_time_window_seconds: "Wait (n) seconds before sending any private notification emails, to give users a chance to edit and finalize their posts."
     email_posts_context: "How many prior replies to include as context in notification emails."
     flush_timings_secs: "How frequently we flush timing data to the server, in seconds."
     title_max_word_length: "The maximum allowed word length, in characters, in a topic title."
@@ -1111,6 +1143,8 @@ en:
     unsubscribe_via_email: "Allow users to unsubscribe from emails by sending an email with 'unsubscribe' in the subject or body"
     unsubscribe_via_email_footer: "Attach an unsubscribe link to the footer of sent emails"
 
+    delete_email_logs_after_days: "Delete email logs after (N) days. 0 to keep indefinitely"
+
     pop3_polling_enabled: "Poll via POP3 for email replies."
     pop3_polling_ssl: "Use SSL while connecting to the POP3 server. (Recommended)"
     pop3_polling_period_mins: "The period in minutes between checking the POP3 account for email. NOTE: requires restart."
@@ -1140,7 +1174,7 @@ en:
     automatically_download_gravatars: "Download Gravatars for users upon account creation or email change."
     digest_topics: "The maximum number of topics to display in the email digest."
     digest_min_excerpt_length: "Minimum post excerpt in the email digest, in characters."
-    suppress_digest_email_after_days: "Suppress digest emails for users not seen on the site for more than (n) days."
+    delete_digest_email_after_days: "Suppress digest emails for users not seen on the site for more than (n) days."
     disable_digest_emails: "Disable digest emails for all users."
 
     detect_custom_avatars: "Whether or not to check that users have uploaded custom profile pictures."
@@ -1214,7 +1248,7 @@ en:
     emoji_set: "How would you like your emoji?"
     enforce_square_emoji: "Force a square aspect ratio to all emojis."
 
-    approve_post_count: "The amount of posts from a new user that must be approved"
+    approve_post_count: "The amount of posts from a new or basic user that must be approved"
     approve_unless_trust_level: "Posts for users below this trust level must be approved"
     notify_about_queued_posts_after: "If there are posts that have been waiting to be reviewed for more than this many hours, an email will be sent to the contact email. Set to 0 to disable these emails."
 
@@ -1223,6 +1257,9 @@ en:
     default_email_direct: "Send an email when someone quotes/replies to/mentions or invites the user by default."
     default_email_mailing_list_mode: "Send an email for every new post by default."
     default_email_always: "Send an email notification even when the user is active by default."
+    default_email_previous_replies: "Include previous replies in emails by default."
+
+    default_email_in_reply_to: "Include excerpt of replied to post in emails by default."
 
     default_other_new_topic_duration_minutes: "Global default condition for which a topic is considered new."
     default_other_auto_track_topics_after_msecs: "Global default time before a topic is automatically tracked."
@@ -1231,6 +1268,8 @@ en:
     default_other_dynamic_favicon: "Show new/updated topic count on browser icon by default."
     default_other_disable_jump_reply: "Don't jump to user's post after they reply by default."
     default_other_edit_history_public: "Make the post revisions public by default."
+
+    default_other_like_notification_frequency: "Notify users on likes by default"
 
     default_topics_automatic_unpin: "Automatically unpin topics when the user reaches the bottom by default."
 
@@ -1256,6 +1295,8 @@ en:
       pop3_polling_username_is_empty: "You must set a 'pop3 polling username' before enabling POP3 polling."
       pop3_polling_password_is_empty: "You must set a 'pop3 polling password' before enabling POP3 polling."
       pop3_polling_authentication_failed: "POP3 authentication failed. Please verify your pop3 credentials."
+      reply_by_email_address_is_empty: "You must set a 'reply by email address' before enabling reply by email."
+      pop3_polling_disabled: "You must first enabled POP3 polling before enabling reply by email."
 
   notification_types:
     group_mentioned: "%{group_name} was mentioned in %{link}"
@@ -1268,7 +1309,7 @@ en:
     moved_post: "%{display_username} moved your post to %{link}"
     private_message: "%{display_username} sent you a message: %{link}"
     invited_to_private_message: "%{display_username} invited you to a message: %{link}"
-    invited_to_topic: "%{display_username} invited you to a topic: %{link}"
+    invited_to_topic: "%{display_username} invited you to %{link}"
     invitee_accepted: "%{display_username} accepted your invitation"
     linked: "%{display_username} linked you in %{link}"
     granted_badge: "You earned %{link}"
@@ -1366,6 +1407,7 @@ en:
     reserved_username: "That username is not allowed."
     missing_user_field: "You have not completed all the user fields"
     close_window: "Authentication is complete. Close this window to continue."
+    already_logged_in: "Oops, looks like you are attempting to accept an invitation for another user. If you are not %{current_user}, please log out and try again."
 
   user:
     no_accounts_associated: "No accounts associated"
@@ -1375,8 +1417,8 @@ en:
       characters: "must only include numbers, letters and underscores"
       unique: "must be unique"
       blank: "must be present"
-      must_begin_with_alphanumeric: "must begin with a letter or number or an underscore"
-      must_end_with_alphanumeric: "must end with a letter or number or an underscore"
+      must_begin_with_alphanumeric_or_underscore: "must begin with a letter, a number or an underscore"
+      must_end_with_alphanumeric: "must end with a letter or a number"
       must_not_contain_two_special_chars_in_seq: "must not contain a sequence of 2 or more special chars (.-_)"
       must_not_end_with_confusing_suffix: "must not end with a confusing suffix like .json or .png etc."
     email:
@@ -1385,6 +1427,14 @@ en:
     ip_address:
       blocked: "New registrations are not allowed from your IP address."
       max_new_accounts_per_registration_ip: "New registrations are not allowed from your IP address (maximum limit reached). Contact a staff member."
+
+  flags_reminder:
+    flags_were_submitted:
+      one: "Flags were submitted over 1 hour ago. Please review them."
+      other: "Flags were submitted over %{count} hours ago. Please review them."
+    subject_template:
+      one: "1 flag waiting to be handled"
+      other: "%{count} flags waiting to be handled"
 
   unsubscribe_mailer:
     subject_template: "Confirm you no longer want to receive email updates from %{site_title}"
@@ -1462,7 +1512,9 @@ en:
 
       - If you run your own mail server, check to make sure the IPs of your mail server are [not on any email blacklists][4]. Also verify that it is definitely sending a fully-qualified hostname that resolves in DNS in its HELO message. If not, this will cause your email to be rejected by many mail services.
 
-      (The *easy* way is to create a free account on [Mandrill][md] or [Mailgun][mg] or [Mailjet][mj], which have free generous free mailing plans and will be fine for small communities. You'll still need to set up the SPF and DKIM records in your DNS, though!)
+      - We highly recommend you **send a test email to [mail-tester.com][mt]** to verify that all the above is working correctly.
+
+      (The *easy* way is to create a free account on [SendGrid][sg], [SparkPost][sp], [Mailgun][mg] or [Mailjet][mj], which have free generous free mailing plans and will be fine for small communities. You'll still need to set up the SPF and DKIM records in your DNS, though!)
 
       We hope you received this email deliverability test OK!
 
@@ -1477,19 +1529,19 @@ en:
       [4]: http://whatismyipaddress.com/blacklist-check
       [7]: http://dkimcore.org/tools/dkimrecordcheck.html
       [8]: http://www.openspf.org/SPF_Record_Syntax
-      [md]: http://mandrill.com
+      [sg]: https://sendgrid.com/
+      [sp]: https://www.sparkpost.com/
       [mg]: http://www.mailgun.com/
       [mj]: https://www.mailjet.com/pricing
+      [mt]: http://www.mail-tester.com/
 
   new_version_mailer:
     subject_template: "[%{site_name}] New Discourse version, update available"
     text_body_template: |
-      A new version of [Discourse](http://www.discourse.org) is available.
+      Hooray, a new version of [Discourse](http://www.discourse.org) is available! :)
 
       Your version: %{installed_version}
       New version: **%{new_version}**
-
-      You may want to:
 
       - See what's new in the [GitHub changelog](https://github.com/discourse/discourse/commits/master).
 
@@ -1500,12 +1552,10 @@ en:
   new_version_mailer_with_notes:
     subject_template: "[%{site_name}] update available"
     text_body_template: |
-      A new version of [Discourse](http://www.discourse.org) is available.
+      Hooray, a new version of [Discourse](http://www.discourse.org) is available! :)
 
       Your version: %{installed_version}
       New version: **%{new_version}**
-
-      You may want to:
 
       - See what's new in the [GitHub changelog](https://github.com/discourse/discourse/commits/master).
 
@@ -1516,17 +1566,6 @@ en:
       ### Release notes
 
       %{notes}
-
-  flags_reminder:
-    flags_were_submitted:
-      one: "These flags were submitted over 1 hour ago."
-      other: "These flags were submitted over %{count} hours ago."
-    please_review: "Please review them."
-    post_number: "post"
-    how_to_disable: 'You can disable or change the frequency of this email reminder via the "notify about flags after" setting.'
-    subject_template:
-      one: "1 flag waiting to be handled"
-      other: "%{count} flags waiting to be handled"
 
   queued_posts_reminder:
     subject_template:
@@ -1774,26 +1813,33 @@ en:
 
         Your account associated with this email address is not activated. Please activate your account before sending emails in.
 
+    email_reject_blocked_user:
+      subject_template: "[%{site_name}] Email issue -- Blocked User"
+      text_body_template: |
+        We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
+
+        Your account associated with this email address has been blocked.
+
     email_reject_reply_user_not_matching:
       subject_template: "[%{site_name}] Email issue -- Reply User Not Matching"
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        The original notification was not sent to this email address. Try sending from a different email address, or contact a staff member.
+        Your reply was sent from a different email address than the one we expected, so we're not sure if this is the same person. Try sending from another email address, or contact a staff member.
 
     email_reject_no_message_id:
       subject_template: "[%{site_name}] Email issue -- No Message Id"
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        There was no Message-Id header in the email. Try sending from a different email address, or contact a staff member.
+        We couldn't find a `Message-Id` header in the email. Try sending from a different email address, or contact a staff member.
 
     email_reject_no_account:
       subject_template: "[%{site_name}] Email issue -- Unknown Account"
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        There is no known user account with this email address. Try sending from a different email address, or contact a staff member.
+        We can't find any accounts that match your email address. Try sending from a different email address, or contact a staff member.
 
     email_reject_empty:
       subject_template: "[%{site_name}] Email issue -- No Content"
@@ -1823,7 +1869,7 @@ en:
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        The category you sent this email to does not allow emails from unrestricted accounts. If you believe this is in error, contact a staff member.
+        The category you sent this email to only allows replies from users with valid accounts and known email addresses. If you believe this is in error, contact a staff member.
 
     email_reject_invalid_post:
       subject_template: "[%{site_name}] Email issue -- Posting error"
@@ -1843,6 +1889,13 @@ en:
 
         If you can correct the problem, please try again.
 
+    email_reject_rate_limit_specified:
+      subject_template: "[%{site_name}] Email issue -- Rate limited"
+      text_body_template: |
+        We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
+
+        Reason: %{rate_limit_description}
+
     email_reject_invalid_post_action:
       subject_template: "[%{site_name}] Email issue -- Invalid Post Action"
       text_body_template: |
@@ -1856,21 +1909,21 @@ en:
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        The provided reply key is invalid or unknown, so we don't know what this email is in reply to. Contact a staff member.
+        The reply key in the email is invalid or unknown, so we can't figure out what this email is in reply to. Contact a staff member.
 
     email_reject_bad_destination_address:
       subject_template: "[%{site_name}] Email issue -- Unknown To: Address"
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        None of the destination addresses are recognized. Please make sure that you are sending to the correct email address provided by staff.
+        None of the destination email addresses are recognized. Please make sure that you are sending to the correct email address provided by staff.
 
     email_reject_topic_not_found:
       subject_template: "[%{site_name}] Email issue -- Topic Not Found"
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        The topic you are replying to no longer exists, perhaps it was deleted? If you believe this is in error, contact a staff member.
+        The topic you are replying to no longer exists -- perhaps it was deleted? If you believe this is in error, contact a staff member.
 
     email_reject_topic_closed:
       subject_template: "[%{site_name}] Email issue -- Topic Closed"
@@ -1884,14 +1937,16 @@ en:
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        Your email was marked as "auto generated", which we can't accept. If you believe this is in error, contact a staff member.
+        Your email was marked as "auto generated", which means it was automatically created by a computer instead of being typed by a human; we can't accept those kinds of emails. If you believe this is in error, contact a staff member.
 
     email_error_notification:
       subject_template: "[%{site_name}] Email issue -- POP authentication error"
       text_body_template: |
-        There has been an authentication error while polling mails from the POP server.
+        Unfortunately, there was an authentication error while polling mails from the POP server.
 
         Please make sure you have properly configured the POP credentials in [the site settings](%{base_url}/admin/site_settings/category/email).
+
+        If there is a web UI for the POP email account, you may need to log in on the web and check your settings there.
 
     too_many_spam_flags:
       subject_template: "New account blocked"
@@ -1968,13 +2023,17 @@ en:
 
   user_notifications:
     previous_discussion: "Previous Replies"
+    in_reply_to: "In Reply To"
     unsubscribe:
       title: "Unsubscribe"
       description: "Not interested in getting these emails? No problem! Click below to unsubscribe instantly:"
 
     header_instructions: ''
-    reply_by_email: "[Visit Topic](%{base_url}%{url}) or reply to this email to respond."
-    visit_link_to_respond: "[Visit Topic](%{base_url}%{url}) to respond."
+    reply_by_email: "[Visit Topic](%{base_url}%{url}) or reply to this email to respond"
+    reply_by_email_pm: "[Visit Message](%{base_url}%{url}) or reply to this email to respond"
+    only_reply_by_email: "Reply to this email to respond"
+    visit_link_to_respond: "[Visit Topic](%{base_url}%{url}) to respond"
+    visit_link_to_respond_pm: "[Visit Message](%{base_url}%{url}) to respond"
 
     posted_by: "Posted by %{username} on %{post_date}"
 
@@ -2011,7 +2070,7 @@ en:
         Please visit this link to view the message: %{base_url}%{url}
 
     user_invited_to_topic:
-      subject_template: "[%{site_name}] %{username} invited you to a topic '%{topic_title}'"
+      subject_template: "[%{site_name}] %{username} invited you to '%{topic_title}'"
       text_body_template: |
 
         %{username} invited you to a discussion
@@ -2051,6 +2110,18 @@ en:
         %{respond_instructions}
 
     user_quoted:
+      subject_template: "[%{site_name}] %{topic_title}"
+      text_body_template: |
+        %{header_instructions}
+
+        %{message}
+
+        %{context}
+
+        ---
+        %{respond_instructions}
+
+    user_linked:
       subject_template: "[%{site_name}] %{topic_title}"
       text_body_template: |
         %{header_instructions}
@@ -2208,7 +2279,7 @@ en:
         If the above link is not clickable, try copying and pasting it into the address bar of your web browser.
 
   page_not_found:
-    title: "The page you requested doesn't exist or is private."
+    title: "Oops! That page doesn’t exist or is private."
     popular_topics: "Popular"
     recent_topics: "Recent"
     see_more: "More"
@@ -2695,3 +2766,6 @@ en:
   performance_report:
     initial_post_raw: This topic includes daily performance reports for your site.
     initial_topic_title: Website performance reports
+
+  topic_invite:
+    user_exists: "Sorry, that user has already been invited. You may only invite a user to a topic once."
