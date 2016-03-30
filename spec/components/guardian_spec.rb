@@ -202,6 +202,14 @@ describe Guardian do
       it "returns false if target is not staff" do
         expect(Guardian.new(user).can_send_private_message?(another_user)).to be_falsey
       end
+
+      it "returns true if target is a staff group" do
+        Group::STAFF_GROUPS.each do |name|
+          g = Group[name]
+          g.alias_level = Group::ALIAS_LEVELS[:everyone]
+          expect(Guardian.new(user).can_send_private_message?(g)).to be_truthy
+        end
+      end
     end
   end
 
@@ -2098,7 +2106,7 @@ describe Guardian do
   end
 
   describe 'can_wiki?' do
-    let(:post) { build(:post) }
+    let(:post) { build(:post, created_at: 1.minute.ago) }
 
     it 'returns false for regular user' do
       expect(Guardian.new(coding_horror).can_wiki?(post)).to be_falsey
@@ -2126,6 +2134,26 @@ describe Guardian do
 
     it 'returns true for trust_level_4 user' do
       expect(Guardian.new(trust_level_4).can_wiki?(post)).to be_truthy
+    end
+
+    context 'post is older than post_edit_time_limit' do
+      let(:old_post) { build(:post, user: trust_level_2, created_at: 6.minutes.ago) }
+      before do
+        SiteSetting.min_trust_to_allow_self_wiki = 2
+        SiteSetting.post_edit_time_limit = 5
+      end
+
+      it 'returns false when user satisfies trust level and owns the post' do
+        expect(Guardian.new(trust_level_2).can_wiki?(old_post)).to be_falsey
+      end
+
+      it 'returns true for admin user' do
+        expect(Guardian.new(admin).can_wiki?(old_post)).to be_truthy
+      end
+
+      it 'returns true for trust_level_4 user' do
+        expect(Guardian.new(trust_level_4).can_wiki?(post)).to be_truthy
+      end
     end
   end
 end

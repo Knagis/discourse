@@ -348,12 +348,20 @@ createWidget('post-article', {
     return rows;
   },
 
+  _getTopicUrl() {
+    const post = this.findAncestorModel();
+    return post ? post.get('topic.url') : null;
+  },
+
   toggleReplyAbove() {
     const replyPostNumber = this.attrs.reply_to_post_number;
 
     // jump directly on mobile
     if (this.attrs.mobileView) {
-      DiscourseURL.jumpToPost(replyPostNumber);
+      const topicUrl = this._getTopicUrl();
+      if (topicUrl) {
+        DiscourseURL.routeTo(`${topicUrl}/${replyPostNumber}`);
+      }
       return Ember.RSVP.Promise.resolve();
     }
 
@@ -361,8 +369,7 @@ createWidget('post-article', {
       this.state.repliesAbove = [];
       return Ember.RSVP.Promise.resolve();
     } else {
-      const post = this.findAncestorModel();
-      const topicUrl = post ? post.get('topic.url') : null;
+      const topicUrl = this._getTopicUrl();
       return this.store.find('post-reply-history', { postId: this.attrs.id }).then(posts => {
         this.state.repliesAbove = posts.map((p) => {
           p.shareUrl = `${topicUrl}/${p.post_number}`;
@@ -416,7 +423,27 @@ export default createWidget('post', {
     const likeAction = post.get('likeAction');
 
     if (likeAction && likeAction.get('canToggle')) {
-      return likeAction.togglePromise(post);
+      return likeAction.togglePromise(post).then(result => this._warnIfClose(result));
+    }
+  },
+
+  _warnIfClose(result) {
+    if (!result || !result.acted) { return; }
+
+    const kvs = this.keyValueStore;
+    const lastWarnedLikes = kvs.get('lastWarnedLikes');
+
+    // only warn once per day
+    const yesterday = new Date().getTime() - 1000 * 60 * 60 * 24;
+    if (lastWarnedLikes && parseInt(lastWarnedLikes) > yesterday) {
+      return;
+    }
+
+    const { remaining, max } = result;
+    const threshold = Math.ceil(max * 0.1);
+    if (remaining === threshold) {
+      bootbox.alert(I18n.t('post.few_likes_left'));
+      kvs.set({ key: 'lastWarnedLikes', value: new Date().getTime() });
     }
   },
 

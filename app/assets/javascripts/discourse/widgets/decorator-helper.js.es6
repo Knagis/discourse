@@ -19,8 +19,24 @@ class DecoratorHelper {
    * // renders `<div class='some-class'><p>paragraph</p></div>`
    * return helper.h('div.some-class', helper.h('p', 'paragraph'));
    * ```
+   * Check out  https://github.com/Matt-Esch/virtual-dom/blob/master/virtual-hyperscript/README.md
+   * for more details on how to construct markup with h.
    **/
   // h() is attached via `prototype` below
+
+  /**
+   * Attach another widget inside this one.
+   *
+   * ```
+   * return helper.attach('widget-name');
+   * ```
+   */
+  attach(name, attrs, state) {
+    attrs = attrs || this.widget.attrs;
+    state = state || this.widget.state;
+
+    return this.widget.attach(name, attrs, state);
+  }
 
   /**
    * Returns the model associated with this widget. When decorating
@@ -63,8 +79,8 @@ class DecoratorHelper {
    * return helper.cooked(`<p>Cook me</p>`);
    * ```
    **/
-  cooked(cookedText) {
-    return new PostCooked({ cookedText });
+  cooked(cooked) {
+    return new PostCooked({ cooked });
   }
 
   /**

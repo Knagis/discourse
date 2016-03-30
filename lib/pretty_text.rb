@@ -78,7 +78,7 @@ module PrettyText
 
   def self.create_new_context
     # timeout any eval that takes longer that 5 seconds
-    ctx = V8::Context.new(timeout: 5000)
+    ctx = V8::Context.new(timeout: 10000)
 
     ctx["helpers"] = Helpers.new
 
@@ -328,8 +328,8 @@ module PrettyText
   def self.extract_links(html)
     links = []
     doc = Nokogiri::HTML.fragment(html)
-    # remove href inside quotes
-    doc.css("aside.quote a").each { |l| l["href"] = "" }
+    # remove href inside quotes & elided part
+    doc.css("aside.quote a, .elided a").each { |l| l["href"] = "" }
 
     # extract all links from the post
     doc.css("a").each { |l|

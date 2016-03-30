@@ -179,6 +179,8 @@ nl:
     more: "Meer"
     less: "Minder"
     never: "nooit"
+    every_30_minutes: "elke dertig minuten"
+    every_hour: "elk uur"
     daily: "dagelijks"
     weekly: "wekelijks"
     every_two_weeks: "elke twee weken"
@@ -468,7 +470,7 @@ nl:
       muted_users: "Negeren"
       muted_users_instructions: "Negeer alle meldingen van deze leden."
       muted_topics_link: "Toon gedempte topics."
-      automatically_unpin_topics: "ontspelt onderwerp automatische wanneer de bodem is bereikt."
+      automatically_unpin_topics: "Topics automatisch lospinnen als ik het laatste bericht bereik."
       staff_counters:
         flags_given: "behulpzame markeringen"
         flagged_posts: "gemarkeerde berichten"
@@ -569,6 +571,11 @@ nl:
         title: "Badge van gebruikersprofiel"
       website: "Website"
       email_settings: "E-mail"
+      like_notification_frequency:
+        always: "Altijd"
+        first_time_and_daily: "De eerste keer dat iemand een bericht leuk vond en dagelijks"
+        first_time: "De eerste keer dat iemand een bericht leuk vond"
+        never: "Nooit"
       email_previous_replies:
         title: "Voeg de vorige reacties bij onderaan de emails"
         unless_emailed: "tenzij eerder verzonden"
@@ -576,6 +583,8 @@ nl:
         never: "nooit"
       email_digests:
         title: "Stuur me een mail met de laatste updates wanneer ik de site niet bezoek:"
+        every_30_minutes: "elke dertig minuten"
+        every_hour: "elk uur"
         daily: "dagelijks"
         every_three_days: "elke drie dagen"
         weekly: "wekelijks"
@@ -707,6 +716,7 @@ nl:
     read_only_mode:
       enabled: "De site is in alleen lezen modus. Interactie is niet mogelijk."
       login_disabled: "Zolang de site in read-only modus is, kan er niet ingelogd worden."
+      logout_disabled: "Uitloggen is uitgeschakeld als de site op alleen lezen staat."
     too_few_topics_and_posts_notice: "Laten  <a href='http://blog.discourse.org/2014/08/building-a-discourse-community/'>we de discussie starten!</a> Er zijn al <strong>%{currentTopics} / %{requiredTopics}</strong> topics en <strong>%{currentPosts} / %{requiredPosts}</strong> berichten. Nieuwe bezoekers hebben conversaties nodig om te lezen en reageren."
     too_few_topics_notice: "Laten  <a href='http://blog.discourse.org/2014/08/building-a-discourse-community/'>we de discussie starten!</a> Er zijn al <strong>%{currentTopics} / %{requiredTopics}</strong> topics en <strong>%{currentPosts} / %{requiredPosts}</strong> berichten. Nieuwe bezoekers hebben conversaties nodig om te lezen en reageren."
     too_few_posts_notice: "Laten  <a href='http://blog.discourse.org/2014/08/building-a-discourse-community/'>we de discussie starten!</a>. Er zijn al <strong>%{currentPosts} / %{requiredPosts}</strong> posts Nieuwe bezoekers hebben conversaties nodig om te lezen en reageren."
@@ -802,6 +812,9 @@ nl:
       twitter:
         title: "met Twitter"
         message: "Inloggen met een Twitteraccount (zorg ervoor dat je popup blocker uit staat)"
+      instagram:
+        title: "met Instagram"
+        message: "Inloggen met een Instagram-account (zorg ervoor dat je pop-upblocker uitstaat)."
       facebook:
         title: "met Facebook"
         message: "Inloggen met een Facebookaccount (zorg ervoor dat je popup blocker uit staat)"
@@ -907,7 +920,6 @@ nl:
       group_mentioned: "<i title='group mentioned' class='fa fa-at'></i><p><span>{{username}}</span> {{description}}</p>"
       quoted: "<i title='geciteerd' class='fa fa-quote-right'></i><p><span>{{username}}</span> {{description}}</p>"
       replied: "<i title='beantwoord' class='fa fa-reply'></i><p><span>{{username}}</span> {{description}}</p>"
-      posted: "<i title='beantwoord' class='fa fa-reply'></i><p><span>{{username}}</span> {{description}}</p>"
       edited: "<i title='aangepast' class='fa fa-pencil'></i><p><span>{{username}}</span> {{description}}</p>"
       liked: "<i title='geliked' class='fa fa-heart'></i><p><span>{{username}}</span> {{description}}</p>"
       private_message: "<i title='privebericht' class='fa fa-envelope-o'></i><p><span>{{username}}</span> {{description}}</p>"
@@ -1542,7 +1554,6 @@ nl:
           description: "Je zult nooit op de hoogte worden gebracht over nieuwe topics in deze categorie, en ze zullen niet verschijnen in Nieuwste."
     flagging:
       title: 'Bedankt voor het helpen beleefd houden van onze gemeenschap!'
-      private_reminder: 'vlaggen zijn privé, <b>alleen</b> zichtbaar voor de staf'
       action: 'Meld bericht'
       take_action: "Onderneem actie"
       notify_action: 'Bericht'
@@ -1554,7 +1565,6 @@ nl:
       submit_tooltip: "Verstuur de privé markering"
       take_action_tooltip: "Bereik de vlag drempel direct, in plaats van het wachten op meer gemeenschapsvlaggen"
       cant: "Sorry, je kan dit bericht momenteel niet melden."
-      notify_staff: 'Licht de staf in'
       formatted_name:
         off_topic: "Het is off topic"
         inappropriate: "Het is ongepast"
@@ -2620,10 +2630,7 @@ nl:
       earned_n_times:
         one: "Verdiende deze badge 1 keer"
         other: "Verdiende deze badge %{count} keer"
-      more_with_badge: "Andere met deze badge"
       title: Badges
-      allow_title: "kan als titel gebruikt worden"
-      multiple_grant: "kan meerdere keren toegekend worden"
       badge_count:
         one: "1 Badge"
         other: "%{count} Badges"
@@ -2646,97 +2653,6 @@ nl:
           name: Overige
         posting:
           name: Schrijven
-      badge:
-        editor:
-          name: Redacteur
-          description: Eerste berichtwijziging
-        basic_user:
-          name: Basis
-          description: <a href="https://meta.discourse.org/t/what-do-user-trust-levels-do/4924/4">Toegang verleend tot</a> alle essentiële gemeenschaps-functionaliteit.
-        member:
-          name: Lid
-          description: <a href="https://meta.discourse.org/t/what-do-user-trust-levels-do/4924/5">Toegang verleend tot</a> uitnodigingen
-        regular:
-          name: Vaste bezoeker
-          description: <a href="https://meta.discourse.org/t/what-do-user-trust-levels-do/4924/6">Toegang verleend tot</a> hercategoriseren, hernoemen, gevolgde links en lounge
-        leader:
-          name: Leider
-          description: <a href="https://meta.discourse.org/t/what-do-user-trust-levels-do/4924/7">Toegang verleend tot</a> globaal wijzigen, vastpinnen, sluiten, archiveren, splitsen en samenvoegen
-        welcome:
-          name: Welkom
-          description: Like ontvangen.
-        autobiographer:
-          name: Autobiografist
-          description: <a href="/my/preferences">Gebruikersprofiel</a> informatie ingevuld
-        anniversary:
-          name: Verjaardag
-          description: Actief lid voor een jaar, heeft tenminste eenmaal iets gepost
-        nice_post:
-          name: Prima bericht
-          description: 10 likes op een post ontvangen. Deze badge kan meerdere keren worden toegekend.
-        good_post:
-          name: Goed bericht
-          description: 25 likes op een post ontvangen. Deze badge kan meerdere keren worden toegekend.
-        great_post:
-          name: Fantastisch Bericht
-          description: 50 likes op een post ontvangen. Deze badge kan meerdere keren worden toegekend.
-        nice_topic:
-          name: Leuk Topic
-          description: 10 likes ontvangen op een topic. Deze badge kan meerdere keren toegewezen worden.
-        good_topic:
-          name: Goed Topic
-          description: 25 likes ontvangen op een topic. Deze badge kan meerdere keren toegewezen worden.
-        great_topic:
-          name: Geweldig Topic
-          description: 50 likes ontvangen op een topic. Deze badge kan meerdere keren toegewezen worden.
-        nice_share:
-          name: Leuk Gedeeld
-          description: Een bericht met 25 unieke bezoekers gedeeld
-        good_share:
-          name: Goed Gedeeld
-          description: Een bericht met 300 unieke bezoekers gedeeld
-        great_share:
-          name: Geweldig Gedeeld
-          description: Een bericht met 1000 unieke bezoekers gedeeld
-        first_like:
-          name: Eerste like
-          description: Hebt een bericht ge-vind-ik-leukt
-        first_flag:
-          name: Eerste markering
-          description: Een bericht gemarkeerd
-        promoter:
-          name: Promoter
-          description: Heeft een gebruiker uitgenodigd
-        campaigner:
-          name: Campaigner
-          description: Heeft 3 leden (trust level 1) uitgenodigd
-        champion:
-          name: Kampioen
-          description: Heeft 5 leden (trust level 2) uitgenodigd
-        first_share:
-          name: Eerste deel actie
-          description: Een bericht gedeeld
-        first_link:
-          name: Eerste link
-          description: Een interne link toegevoegd aan een ander topic
-        first_quote:
-          name: Eerste citaat
-          description: Een gebruiker geciteerd
-        read_guidelines:
-          name: Heeft de richtlijnen gelezen
-          description: Lees de <a href="/guidelines">community richtlijnen</a>
-        reader:
-          name: Lezer
-          description: Lees elk bericht in een topic met meer dan 100 berichten.
-        popular_link:
-          name: Populaire Link
-          description: Heeft een externe link geplaatst die 50 keer of vaker is aangeklikt.
-        hot_link:
-          name: Zeer Populaire Link
-          description: Heeft een externe link geplaatst die 300 keer of vaker is aangeklikt
-        famous_link:
-          name: Uiterst Populaire Link
-          description: Heeft een externe link geplaatst die 1000 keer of vaker is aangeklikt
     google_search: |
       <h3>Zoek met Google</h3>
       <p>

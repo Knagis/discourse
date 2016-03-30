@@ -119,6 +119,7 @@ export default class Widget {
     this.currentUser = container.lookup('current-user:main');
     this.store = container.lookup('store:main');
     this.appEvents = container.lookup('app-events:main');
+    this.keyValueStore = container.lookup('key-value-store:main');
 
     if (this.name) {
       const custom = _customSettings[this.name];
@@ -140,7 +141,7 @@ export default class Widget {
     if (prev && prev.state) {
       this.state = prev.state;
     } else {
-      this.state = this.defaultState();
+      this.state = this.defaultState(this.attrs, this.state);
     }
 
     // Sometimes we pass state down from the parent

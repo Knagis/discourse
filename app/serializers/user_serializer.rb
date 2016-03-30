@@ -95,7 +95,8 @@ class UserSerializer < BasicUserSerializer
                      :has_title_badges,
                      :card_image_badge,
                      :card_image_badge_id,
-                     :muted_usernames
+                     :muted_usernames,
+                     :mailing_list_posts_per_day
 
   untrusted_attributes :bio_raw,
                        :bio_cooked,
@@ -108,6 +109,11 @@ class UserSerializer < BasicUserSerializer
   ###
   ### ATTRIBUTES
   ###
+
+  def mailing_list_posts_per_day
+    val = Post.estimate_posts_per_day
+    [val,SiteSetting.max_emails_per_day_per_user].min
+  end
 
   def groups
     if scope.is_admin? || object.id == scope.user.try(:id)
@@ -318,15 +324,10 @@ class UserSerializer < BasicUserSerializer
   end
 
   def custom_fields
-    fields = nil
+    fields = User.whitelisted_user_custom_fields(scope)
 
     if scope.can_edit?(object)
-      fields = DiscoursePluginRegistry.serialized_current_user_fields.to_a
-    end
-
-    if SiteSetting.public_user_custom_fields.present?
-      fields ||= []
-      fields += SiteSetting.public_user_custom_fields.split('|')
+      fields += DiscoursePluginRegistry.serialized_current_user_fields.to_a
     end
 
     if fields.present?

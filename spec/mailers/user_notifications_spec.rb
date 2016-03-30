@@ -243,6 +243,31 @@ describe UserNotifications do
     end
   end
 
+
+  it 'adds a warning when mail limit is reached' do
+    SiteSetting.max_emails_per_day_per_user = 2
+    user = Fabricate(:user)
+    user.email_logs.create(email_type: 'blah', to_address: user.email, user_id: user.id, skipped: false)
+
+    post = Fabricate(:post)
+    reply = Fabricate(:post, topic_id: post.topic_id)
+
+    notification = Fabricate(:notification, topic_id: post.topic_id, post_number: reply.post_number,
+                             user: post.user, data: {original_username: 'bob'}.to_json)
+
+    mail = UserNotifications.user_replied(
+      user,
+      post: reply,
+      notification_type: notification.notification_type,
+      notification_data_hash: notification.data_hash
+    )
+
+    # WARNING: you reached the limit of 100 email notifications per day. Further emails will be suppressed.
+    # Consider watching less topics or disabling mailing list mode.
+    expect(mail.html_part.to_s).to match("WARNING: ")
+    expect(mail.body.to_s).to match("WARNING: ")
+  end
+
   def expects_build_with(condition)
     UserNotifications.any_instance.expects(:build_email).with(user.email, condition)
     mailer = UserNotifications.send(mail_type, user,
@@ -405,7 +430,8 @@ describe UserNotifications do
 
     context "user locale has been set" do
 
-      %w(signup signup_after_approval authorize_email forgot_password admin_login account_created).each do |mail_type|
+      %w(signup signup_after_approval confirm_old_email notify_old_email confirm_new_email
+         forgot_password admin_login account_created).each do |mail_type|
         include_examples "notification derived from template" do
           SiteSetting.default_locale = "en"
           let(:locale) { "fr" }
@@ -418,7 +444,8 @@ describe UserNotifications do
     end
 
     context "user locale has not been set" do
-      %w(signup signup_after_approval authorize_email forgot_password admin_login account_created).each do |mail_type|
+      %w(signup signup_after_approval notify_old_email confirm_old_email confirm_new_email
+         forgot_password admin_login account_created).each do |mail_type|
         include_examples "notification derived from template" do
           SiteSetting.default_locale = "en"
           let(:locale) { nil }
@@ -431,7 +458,8 @@ describe UserNotifications do
     end
 
     context "user locale is an empty string" do
-      %w(signup signup_after_approval authorize_email forgot_password admin_login account_created).each do |mail_type|
+      %w(signup signup_after_approval notify_old_email confirm_new_email confirm_old_email
+         forgot_password admin_login account_created).each do |mail_type|
         include_examples "notification derived from template" do
           SiteSetting.default_locale = "en"
           let(:locale) { "" }
