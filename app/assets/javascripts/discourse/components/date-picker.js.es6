@@ -15,8 +15,6 @@ export default Em.Component.extend({
         field: input,
         container: this.$()[0],
         format: "YYYY-MM-DD",
-        defaultDate: moment().add(1, "day").toDate(),
-        minDate: new Date(),
         firstDay: moment.localeData().firstDayOfWeek(),
         i18n: {
           previousMonth: I18n.t('dates.previous_month'),
@@ -28,7 +26,7 @@ export default Em.Component.extend({
         onSelect: date => this.set("value", moment(date).format("YYYY-MM-DD"))
       };
 
-      this._picker = new Pikaday(Object.assign(default_opts, this._opts()));
+      this._picker = new Pikaday(_.merge(default_opts, this._opts()));
     });
   },
 

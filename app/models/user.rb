@@ -25,11 +25,11 @@ class User < ActiveRecord::Base
   has_many :user_badges, -> { where('user_badges.badge_id IN (SELECT id FROM badges WHERE enabled)') }, dependent: :destroy
   has_many :badges, through: :user_badges
   has_many :email_logs, dependent: :delete_all
+  has_many :incoming_emails, dependent: :delete_all
   has_many :post_timings
   has_many :topic_allowed_users, dependent: :destroy
   has_many :topics_allowed, through: :topic_allowed_users, source: :topic
   has_many :email_tokens, dependent: :destroy
-  has_many :views
   has_many :user_visits, dependent: :destroy
   has_many :invites, dependent: :destroy
   has_many :topic_links, dependent: :destroy
@@ -573,11 +573,11 @@ class User < ActiveRecord::Base
   end
 
   def posted_too_much_in_topic?(topic_id)
-
-    # Does not apply to staff, non-new members or your own topics
-    return false if staff? ||
-                    (trust_level != TrustLevel[0]) ||
-                    Topic.where(id: topic_id, user_id: id).exists?
+    # Does not apply to staff and non-new members...
+    return false if staff? || (trust_level != TrustLevel[0])
+    # ... your own topics or in private messages
+    topic = Topic.where(id: topic_id).first
+    return false if topic.try(:private_message?) || (topic.try(:user_id) == self.id)
 
     last_action_in_topic = UserAction.last_action_in_topic(id, topic_id)
     since_reply = Post.where(user_id: id, topic_id: topic_id)
@@ -662,19 +662,25 @@ class User < ActiveRecord::Base
 
   def featured_user_badges(limit=3)
     user_badges
+        .group(:badge_id)
+        .select(UserBadge.attribute_names.map { |x| "MAX(user_badges.#{x}) AS #{x}" },
+                'COUNT(*) AS "count"',
+                'MAX(badges.badge_type_id) AS badges_badge_type_id',
+                'MAX(badges.grant_count) AS badges_grant_count')
         .joins(:badge)
-        .order("CASE WHEN badges.id = (SELECT MAX(ub2.badge_id) FROM user_badges ub2
-                              WHERE ub2.badge_id IN (#{Badge.trust_level_badge_ids.join(",")}) AND
-                                    ub2.user_id = #{self.id}) THEN 1 ELSE 0 END DESC")
-        .order('badges.badge_type_id ASC, badges.grant_count ASC')
-        .includes(:user, :granted_by, badge: :badge_type)
-        .where("user_badges.id in (select min(u2.id)
-                  from user_badges u2 where u2.user_id = ? group by u2.badge_id)", id)
+        .order("CASE WHEN user_badges.badge_id = (
+                  SELECT MAX(ub2.badge_id)
+                    FROM user_badges ub2
+                   WHERE ub2.badge_id IN (#{Badge.trust_level_badge_ids.join(",")})
+                     AND ub2.user_id = #{self.id}
+                ) THEN 1 ELSE 0 END DESC")
+        .order('badges_badge_type_id ASC, badges_grant_count ASC')
+        .includes(:user, :granted_by, { badge: :badge_type }, { post: :topic })
         .limit(limit)
   end
 
   def self.count_by_signup_date(start_date, end_date, group_id=nil)
-    result = where('users.created_at >= ? and users.created_at <= ?', start_date, end_date)
+    result = where('users.created_at >= ? AND users.created_at <= ?', start_date, end_date)
 
     if group_id
       result = result.joins("INNER JOIN group_users ON group_users.user_id = users.id")
@@ -748,7 +754,8 @@ class User < ActiveRecord::Base
     avatar = user_avatar || create_user_avatar
 
     if SiteSetting.automatically_download_gravatars? && !avatar.last_gravatar_download_attempt
-      Jobs.enqueue(:update_gravatar, user_id: self.id, avatar_id: avatar.id)
+      Jobs.cancel_scheduled_job(:update_gravatar, user_id: self.id, avatar_id: avatar.id)
+      Jobs.enqueue_in(1.second, :update_gravatar, user_id: self.id, avatar_id: avatar.id)
     end
 
     # mark all the user's quoted posts as "needing a rebake"
@@ -923,7 +930,7 @@ class User < ActiveRecord::Base
 
   def send_approval_email
     if SiteSetting.must_approve_users
-      Jobs.enqueue(:user_email,
+      Jobs.enqueue(:critical_user_email,
         type: :signup_after_approval,
         user_id: id,
         email_token: email_tokens.first.token

@@ -21,20 +21,27 @@ module TopicGuardian
   def can_create_post_on_topic?(topic)
     # No users can create posts on deleted topics
     return false if topic.trashed?
+    return true if is_admin?
+
+    trusted = (authenticated? && user.has_trust_level?(TrustLevel[4])) || is_moderator?
 
     # if anonymous emails are allowed in the category, users can see their own topics
     return true if authenticated? && topic.category && topic.category.email_in_allow_strangers? && topic.first_post.user_id == @user.id
 
-    is_staff? || (authenticated? && user.has_trust_level?(TrustLevel[4])) || (not(topic.closed? || topic.archived? || topic.trashed?) && can_create_post?(topic))
+    (!(topic.closed? || topic.archived?) || trusted) && can_create_post?(topic)
   end
 
   # Editing Method
   def can_edit_topic?(topic)
     return false if Discourse.static_doc_topic_ids.include?(topic.id) && !is_admin?
     return false unless can_see?(topic)
-    return true if is_staff?
+
+    return true if is_admin?
+    return true if is_moderator? && can_create_post?(topic)
+
     # TL4 users can edit archived topics, but can not edit private messages
     return true if (topic.archived && !topic.private_message? && user.has_trust_level?(TrustLevel[4]) && can_create_post?(topic))
+
     # TL3 users can not edit archived topics and private messages
     return true if (!topic.archived && !topic.private_message? && user.has_trust_level?(TrustLevel[3]) && can_create_post?(topic))
 
