@@ -261,7 +261,7 @@ module Email
     def parse_from_field
       if @mail[:from].errors.blank?
         address_field = @mail[:from].address_list.addresses.first
-      address_field.decoded
+        address_field.decoded
         from_address = address_field.address
         from_display_name = address_field.display_name.try(:to_s)
       else
