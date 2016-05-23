@@ -15,11 +15,16 @@
 
   .small-action-desc {
     padding-top: 1em;
-    
+
     button {
       padding-top: 0px;
     }
   }
+}
+
+/* hide the reply border above the time gap notices */
+.time-gap + .topic-post article {
+  border-top: none;
 }
 
 .topic-post article {
@@ -322,10 +327,11 @@ a.star {
   }
 }
 
-/* this is to force the drop-down notification state description para below the button */
+
 #topic-footer-buttons p {
-  clear: both;
+  clear: both; /* this is to force the drop-down notification state description para below the button */
   margin: 0;
+  color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%));
 }
 
 #suggested-topics {
@@ -402,6 +408,12 @@ iframe {
     float: left;
     margin-right: 5px;
     padding-top: 1px;
+  }
+  span {
+    color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%));
+  }
+  span.title {
+    color: $primary;
   }
 }
 

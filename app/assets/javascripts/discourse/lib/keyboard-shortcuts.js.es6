@@ -10,11 +10,12 @@ const bindings = {
   '.':               {click: '.alert.alert-info.clickable', anonymous: true}, // show incoming/updated topics
   'b':               {handler: 'toggleBookmark'},
   'c':               {handler: 'createTopic'},
-  'ctrl+f':          {handler: 'showBuiltinSearch', anonymous: true},
-  'command+f':       {handler: 'showBuiltinSearch', anonymous: true},
+  'ctrl+f':          {handler: 'showPageSearch', anonymous: true},
+  'command+f':       {handler: 'showPageSearch', anonymous: true},
   'd':               {postAction: 'deletePost'},
   'e':               {postAction: 'editPost'},
   'end':             {handler: 'goToLastPost', anonymous: true},
+  'command+down':    {handler: 'goToLastPost', anonymous: true},
   'f':               {handler: 'toggleBookmarkTopic'},
   'g h':             {path: '/', anonymous: true},
   'g l':             {path: '/latest', anonymous: true},
@@ -26,6 +27,7 @@ const bindings = {
   'g p':             {path: '/my/activity'},
   'g m':             {path: '/my/messages'},
   'home':            {handler: 'goToFirstPost', anonymous: true},
+  'command+up':      {handler: 'goToFirstPost', anonymous: true},
   'j':               {handler: 'selectDown', anonymous: true},
   'k':               {handler: 'selectUp', anonymous: true},
   'l':               {click: '.topic-post.selected button.toggle-like'},
@@ -142,32 +144,10 @@ export default {
     this._changeSection(-1);
   },
 
-  showBuiltinSearch() {
-    if (this.container.lookup('controller:header').get('searchVisible')) {
-      this.toggleSearch();
-      return true;
-    }
-
-    this.searchService.set('searchContextEnabled', false);
-
-    const currentPath = this.container.lookup('controller:application').get('currentPath'),
-          blacklist = [ /^discovery\.categories/ ],
-          whitelist = [ /^topic\./ ],
-          check = function(regex) { return !!currentPath.match(regex); };
-    let showSearch = whitelist.any(check) && !blacklist.any(check);
-
-    // If we're viewing a topic, only intercept search if there are cloaked posts
-    if (showSearch && currentPath.match(/^topic\./)) {
-      showSearch = $('.topic-post .cooked, .small-action:not(.time-gap)').length < this.container.lookup('controller:topic').get('model.postStream.stream.length');
-    }
-
-    if (showSearch) {
-      this.searchService.set('searchContextEnabled', true);
-      this.toggleSearch();
-      return false;
-    }
-
-    return true;
+  showPageSearch(event) {
+    Ember.run(() => {
+      this.appEvents.trigger('header:keyboard-trigger', {type: 'page-search', event});
+    });
   },
 
   createTopic() {
@@ -182,17 +162,16 @@ export default {
     this.container.lookup('controller:topic-progress').send('toggleExpansion', {highlight: true});
   },
 
-  toggleSearch() {
-    this.container.lookup('controller:header').send('toggleSearch');
-    return false;
+  toggleSearch(event) {
+    this.appEvents.trigger('header:keyboard-trigger', {type: 'search', event});
   },
 
-  toggleHamburgerMenu() {
-    this.container.lookup('controller:header').send('toggleMenuPanel', 'hamburgerVisible');
+  toggleHamburgerMenu(event) {
+    this.appEvents.trigger('header:keyboard-trigger', {type: 'hamburger', event});
   },
 
-  showCurrentUser() {
-    this.container.lookup('controller:header').send('toggleMenuPanel', 'userMenuVisible');
+  showCurrentUser(event) {
+    this.appEvents.trigger('header:keyboard-trigger', {type: 'user', event});
   },
 
   showHelpModal() {
@@ -226,7 +205,13 @@ export default {
       const post = topicController.get('model.postStream.posts').findBy('id', selectedPostId);
       if (post) {
         // TODO: Use ember closure actions
-        const result = topicController._actions[action].call(topicController, post);
+        let actionMethod = topicController._actions[action];
+        if (!actionMethod) {
+          const topicRoute = container.lookup('route:topic');
+          actionMethod = topicRoute._actions[action];
+        }
+
+        const result = actionMethod.call(topicController, post);
         if (result && result.then) {
           this.appEvents.trigger('post-stream:refresh', { id: selectedPostId });
         }
@@ -310,10 +295,6 @@ export default {
 
       $articles.removeClass('selected');
       $article.addClass('selected');
-
-      if ($article.is('.topic-list-item')) {
-        this.sendToTopicListItemView('select');
-      }
 
       if ($article.is('.topic-post')) {
         $('a.tabLoc', $article).focus();
