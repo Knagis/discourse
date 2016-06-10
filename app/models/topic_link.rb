@@ -178,7 +178,13 @@ class TopicLink < ActiveRecord::Base
               prefix = Discourse.base_url_no_prefix
 
               reflected_url = "#{prefix}#{post.topic.relative_url(post.post_number)}"
-              tl = TopicLink.create(user_id: post.user_id,
+
+              tl = TopicLink.find_by(topic_id: topic_id,
+                                     post_id: reflected_post.try(:id),
+                                     url: reflected_url)
+
+              unless tl
+                tl = TopicLink.create(user_id: post.user_id,
                                     topic_id: topic_id,
                                     post_id: reflected_post.try(:id),
                                     url: reflected_url,
@@ -187,6 +193,8 @@ class TopicLink < ActiveRecord::Base
                                     internal: true,
                                     link_topic_id: post.topic_id,
                                     link_post_id: post.id)
+
+              end
 
               reflected_ids << tl.try(:id)
             end
@@ -232,8 +240,8 @@ class TopicLink < ActiveRecord::Base
       normalized = tl.url.downcase.sub(/^https?:\/\//, '').sub(/\/$/, '')
       lookup[normalized] = { domain: tl.domain,
                              username: tl.post.user.username_lower,
-                             post_url: tl.post.url,
-                             posted_at: tl.post.created_at }
+                             posted_at: tl.post.created_at,
+                             post_number: tl.post.post_number }
     end
 
     lookup
