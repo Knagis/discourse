@@ -2,6 +2,7 @@ import { iconNode } from 'discourse/helpers/fa-icon';
 import { createWidget } from 'discourse/widgets/widget';
 import { h } from 'virtual-dom';
 import RawHtml from 'discourse/widgets/raw-html';
+import { emojiUnescape } from 'discourse/lib/text';
 
 export default createWidget('post-links', {
   tagName: 'div.post-links-container',
@@ -12,7 +13,7 @@ export default createWidget('post-links', {
   },
 
   linkHtml(link) {
-    const escapedTitle = Discourse.Emoji.unescape(Handlebars.Utils.escapeExpression(link.title));
+    const escapedTitle = emojiUnescape(Handlebars.Utils.escapeExpression(link.title));
     const linkBody = [new RawHtml({ html: `<span>${escapedTitle}</span>` })];
     if (link.clicks) {
       linkBody.push(h('span.badge.badge-notification.clicks', link.clicks.toString()));
@@ -22,7 +23,7 @@ export default createWidget('post-links', {
       h('a.track-link', {
         className: 'inbound',
         attributes: { href: link.url }
-      }, [iconNode('arrow-left'), linkBody])
+      }, [iconNode('link'), linkBody])
     );
   },
 

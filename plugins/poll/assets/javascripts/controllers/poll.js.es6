@@ -1,3 +1,4 @@
+import { ajax } from 'discourse/lib/ajax';
 import { default as computed, observes } from "ember-addons/ember-computed-decorators";
 
 export default Ember.Controller.extend({
@@ -6,7 +7,6 @@ export default Ember.Controller.extend({
   isRandom : Ember.computed.equal("poll.order", "random"),
   isClosed: Ember.computed.equal("poll.status", "closed"),
   isPublic: Ember.computed.equal("poll.public", "true"),
-  pollsVoters: Ember.computed.alias("post.polls_voters"),
 
   // shows the results when
   //   - poll is closed
@@ -138,7 +138,7 @@ export default Ember.Controller.extend({
 
       this.set("loading", true);
 
-      Discourse.ajax("/polls/vote", {
+      ajax("/polls/vote", {
         type: "PUT",
         data: {
           post_id: this.get("post.id"),
@@ -148,14 +148,9 @@ export default Ember.Controller.extend({
       }).then(results => {
         const poll = results.poll;
         const votes = results.vote;
-        const currentUser = this.currentUser;
 
         this.setProperties({ vote: votes, showResults: true });
         this.set("model", Em.Object.create(poll));
-
-        if (poll.public) {
-          this.get("pollsVoters")[currentUser.get("id")] = currentUser;
-        }
       }).catch(() => {
         bootbox.alert(I18n.t("poll.error_while_casting_votes"));
       }).finally(() => {
@@ -181,7 +176,7 @@ export default Ember.Controller.extend({
           if (confirmed) {
             self.set("loading", true);
 
-            Discourse.ajax("/polls/toggle_status", {
+            ajax("/polls/toggle_status", {
               type: "PUT",
               data: {
                 post_id: self.get("post.id"),
