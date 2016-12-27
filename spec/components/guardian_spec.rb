@@ -248,6 +248,9 @@ describe Guardian do
       expect(guardian.can_see_post_actors?(topic, PostActionType.types[:off_topic])).to be_falsey
       expect(guardian.can_see_post_actors?(topic, PostActionType.types[:spam])).to be_falsey
       expect(guardian.can_see_post_actors?(topic, PostActionType.types[:vote])).to be_truthy
+      expect(guardian.can_see_post_actors?(topic, PostActionType.types[:notify_user])).to be_falsey
+
+      expect(Guardian.new(moderator).can_see_post_actors?(topic, PostActionType.types[:notify_user])).to be_truthy
     end
 
     it 'returns false for private votes' do
@@ -574,12 +577,6 @@ describe Guardian do
         it 'is true when logged in' do
           expect(Guardian.new(Fabricate(:user)).can_see?(post_revision)).to be_truthy
         end
-
-        it 'is true if the author has public edit history' do
-          public_post_revision = Fabricate(:post_revision)
-          public_post_revision.post.user.user_option.edit_history_public = true
-          expect(Guardian.new.can_see?(public_post_revision)).to be_truthy
-        end
       end
 
       context 'edit_history_visible_to_public is false' do
@@ -596,12 +593,6 @@ describe Guardian do
 
         it 'is false for trust level lower than 4' do
           expect(Guardian.new(trust_level_3).can_see?(post_revision)).to be_falsey
-        end
-
-        it 'is true if the author has public edit history' do
-          public_post_revision = Fabricate(:post_revision)
-          public_post_revision.post.user.user_option.edit_history_public = true
-          expect(Guardian.new.can_see?(public_post_revision)).to be_truthy
         end
       end
     end
@@ -982,6 +973,20 @@ describe Guardian do
 
       it 'returns true as a trust level 4 user' do
         expect(Guardian.new(trust_level_4).can_edit?(post)).to be_truthy
+      end
+
+      it 'returns false when trying to edit a post with no trust' do
+        SiteSetting.min_trust_to_edit_post = 2
+        post.user.trust_level = 1
+
+        expect(Guardian.new(post.user).can_edit?(post)).to be_falsey
+      end
+
+      it 'returns true when trying to edit a post with trust' do
+        SiteSetting.min_trust_to_edit_post = 1
+        post.user.trust_level = 1
+
+        expect(Guardian.new(post.user).can_edit?(post)).to be_truthy
       end
 
       it 'returns false when another user has too low trust level to edit wiki post' do
@@ -2272,6 +2277,29 @@ describe Guardian do
           expect(Guardian.new(admin).can_tag_topics?).to be_truthy
           expect(Guardian.new(moderator).can_tag_topics?).to be_truthy
         end
+      end
+    end
+  end
+
+  context 'topic featured link category restriction' do
+    before { SiteSetting.topic_featured_link_enabled = true }
+    let(:guardian) { Guardian.new }
+
+    it 'returns true if no category restricts editing link' do
+      expect(guardian.can_edit_featured_link?(nil)).to eq(true)
+      expect(guardian.can_edit_featured_link?(5)).to eq(true)
+    end
+
+    context 'when exist' do
+      let!(:category) { Fabricate(:category) }
+      let!(:link_category) { Fabricate(:link_category) }
+
+      it 'returns true if the category is listed' do
+        expect(guardian.can_edit_featured_link?(link_category.id)).to eq(true)
+      end
+
+      it 'returns false if the category is not listed' do
+        expect(guardian.can_edit_featured_link?(category.id)).to eq(false)
       end
     end
   end

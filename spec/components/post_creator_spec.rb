@@ -9,10 +9,10 @@ describe PostCreator do
   end
 
   let(:user) { Fabricate(:user) }
+  let(:topic) { Fabricate(:topic, user: user) }
 
   context "new topic" do
     let(:category) { Fabricate(:category, user: user) }
-    let(:topic) { Fabricate(:topic, user: user) }
     let(:basic_topic_params) { {title: "hello world topic", raw: "my name is fred", archetype_id: 1} }
     let(:image_sizes) { {'http://an.image.host/image.jpg' => {"width" => 111, "height" => 222}} }
 
@@ -20,6 +20,7 @@ describe PostCreator do
     let(:creator_with_category) { PostCreator.new(user, basic_topic_params.merge(category: category.id )) }
     let(:creator_with_meta_data) { PostCreator.new(user, basic_topic_params.merge(meta_data: {hello: "world"} )) }
     let(:creator_with_image_sizes) { PostCreator.new(user, basic_topic_params.merge(image_sizes: image_sizes)) }
+    let(:creator_with_featured_link) { PostCreator.new(user, title: "featured link topic", archetype_id: 1, featured_link: "http://discourse.org") }
 
     it "can create a topic with null byte central" do
       post = PostCreator.create(user, title: "hello\u0000world this is title", raw: "this is my\u0000 first topic")
@@ -64,6 +65,7 @@ describe PostCreator do
     end
 
     context "success" do
+      before { creator }
 
       it "doesn't return true for spam" do
         creator.create
@@ -71,6 +73,7 @@ describe PostCreator do
       end
 
       it "triggers extensibility events" do
+        creator # bypass a user_created event, can be removed when there is a UserCreator
         DiscourseEvent.expects(:trigger).with(:before_create_post, anything).once
         DiscourseEvent.expects(:trigger).with(:validate_post, anything).once
         DiscourseEvent.expects(:trigger).with(:topic_created, anything, anything, user).once
@@ -241,6 +244,14 @@ describe PostCreator do
         end
       end
 
+      it 'creates a post without raw' do
+        SiteSetting.topic_featured_link_enabled = true
+        SiteSetting.topic_featured_link_onebox = true
+        post = creator_with_featured_link.create
+        expect(post.topic.featured_link).to eq('http://discourse.org')
+        expect(post.raw).to eq('http://discourse.org')
+      end
+
       describe "topic's auto close" do
 
         it "doesn't update topic's auto close when it's not based on last post" do
@@ -332,7 +343,12 @@ describe PostCreator do
   context 'whisper' do
     let!(:topic) { Fabricate(:topic, user: user) }
 
-    it 'forces replies to whispers to be whispers' do
+    it 'whispers do not mess up the public view' do
+
+      first = PostCreator.new(user,
+                                topic_id: topic.id,
+                                raw: 'this is the first post').create
+
       whisper = PostCreator.new(user,
                                 topic_id: topic.id,
                                 reply_to_post_number: 1,
@@ -342,6 +358,7 @@ describe PostCreator do
       expect(whisper).to be_present
       expect(whisper.post_type).to eq(Post.types[:whisper])
 
+
       whisper_reply = PostCreator.new(user,
                                       topic_id: topic.id,
                                       reply_to_post_number: whisper.post_number,
@@ -350,6 +367,29 @@ describe PostCreator do
 
       expect(whisper_reply).to be_present
       expect(whisper_reply.post_type).to eq(Post.types[:whisper])
+
+
+      first.reload
+      # does not leak into the OP
+      expect(first.reply_count).to eq(0)
+
+      topic.reload
+
+      # cause whispers should not muck up that number
+      expect(topic.highest_post_number).to eq(1)
+      expect(topic.reply_count).to eq(0)
+      expect(topic.posts_count).to eq(1)
+      expect(topic.highest_staff_post_number).to eq(3)
+
+      topic.update_columns(highest_staff_post_number:0, highest_post_number:0, posts_count: 0, last_posted_at: 1.year.ago)
+
+      Topic.reset_highest(topic.id)
+
+      topic.reload
+      expect(topic.highest_post_number).to eq(1)
+      expect(topic.posts_count).to eq(1)
+      expect(topic.last_posted_at).to eq(first.created_at)
+      expect(topic.highest_staff_post_number).to eq(3)
     end
   end
 
@@ -444,7 +484,7 @@ describe PostCreator do
 
   # more integration testing ... maximise our testing
   context 'existing topic' do
-    let!(:topic) { Fabricate(:topic, user: user) }
+    let(:topic) { Fabricate(:topic, user: user) }
     let(:creator) { PostCreator.new(user, raw: 'test reply', topic_id: topic.id, reply_to_post_number: 4) }
 
     it 'ensures the user can create the post' do
@@ -622,6 +662,8 @@ describe PostCreator do
       _post2 = create_post(user: post1.user, topic_id: post1.topic_id)
 
       post1.topic.reload
+
+      expect(post1.topic.posts_count).to eq(3)
       expect(post1.topic.closed).to eq(true)
     end
   end
@@ -752,8 +794,6 @@ describe PostCreator do
   end
 
   context "events" do
-    let(:topic) { Fabricate(:topic, user: user) }
-
     before do
       @posts_created = 0
       @topics_created = 0
@@ -796,7 +836,61 @@ describe PostCreator do
       expect(topic_user.notification_level).to eq(TopicUser.notification_levels[:watching])
       expect(topic_user.notifications_reason_id).to eq(TopicUser.notification_reasons[:auto_watch])
     end
+  end
 
+  context "topic tracking" do
+    it "automatically watches topic based on preference" do
+      user.user_option.notification_level_when_replying = 3
+
+      admin = Fabricate(:admin)
+      topic = PostCreator.create(admin,
+                                 title: "this is the title of a topic created by an admin for watching notification",
+                                 raw: "this is the content of a topic created by an admin for keeping a watching notification state on a topic ;)"
+      )
+
+      post = PostCreator.create(user,
+                                topic_id: topic.topic_id,
+                                raw: "this is a reply to set the tracking state to watching ;)"
+      )
+      topic_user = TopicUser.find_by(user_id: user.id, topic_id: post.topic_id)
+      expect(topic_user.notification_level).to eq(TopicUser.notification_levels[:watching])
+    end
+
+    it "topic notification level remains tracking based on preference" do
+      user.user_option.notification_level_when_replying = 2
+
+      admin = Fabricate(:admin)
+      topic = PostCreator.create(admin,
+                                 title: "this is the title of a topic created by an admin for tracking notification",
+                                 raw: "this is the content of a topic created by an admin for keeping a tracking notification state on a topic ;)"
+      )
+
+      post = PostCreator.create(user,
+                                topic_id: topic.topic_id,
+                                raw: "this is a reply to set the tracking state to tracking ;)"
+      )
+      topic_user = TopicUser.find_by(user_id: user.id, topic_id: post.topic_id)
+      expect(topic_user.notification_level).to eq(TopicUser.notification_levels[:tracking])
+    end
+  end
+
+  describe '#create!' do
+    it "should return the post if it was successfully created" do
+      title = "This is a valid title"
+      raw = "This is a really awesome post"
+
+      post_creator = PostCreator.new(user, title: title, raw: raw)
+      post = post_creator.create
+
+      expect(post).to eq(Post.last)
+      expect(post.topic.title).to eq(title)
+      expect(post.raw).to eq(raw)
+    end
+
+    it "should raise an error when post fails to be created" do
+      post_creator = PostCreator.new(user, title: '', raw: '')
+      expect { post_creator.create! }.to raise_error(ActiveRecord::RecordNotSaved)
+    end
   end
 
 end

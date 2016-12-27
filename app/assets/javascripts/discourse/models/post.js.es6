@@ -76,7 +76,7 @@ const Post = RestModel.extend({
 
   internalLinks: function() {
     if (Ember.isEmpty(this.get('link_counts'))) return null;
-    return this.get('link_counts').filterProperty('internal').filterProperty('title');
+    return this.get('link_counts').filterBy('internal').filterBy('title');
   }.property('link_counts.@each.internal'),
 
   flagsAvailable: function() {
@@ -325,6 +325,15 @@ Post.reopenClass({
         post_ids: selectedPosts.map(function(p) { return p.get('id'); }),
         reply_post_ids: selectedReplies.map(function(p) { return p.get('id'); })
       }
+    });
+  },
+
+  mergePosts(selectedPosts) {
+    return ajax("/posts/merge_posts", {
+      type: 'PUT',
+      data: { post_ids: selectedPosts.map(p => p.get('id')) }
+    }).catch(() => {
+      self.flash(I18n.t('topic.merge_posts.error'));
     });
   },
 

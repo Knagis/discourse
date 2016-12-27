@@ -5,6 +5,7 @@ require_dependency 'topic_creator'
 require_dependency 'post_jobs_enqueuer'
 require_dependency 'distributed_mutex'
 require_dependency 'has_errors'
+require_dependency 'discourse_featured_link'
 
 class PostCreator
   include HasErrors
@@ -32,6 +33,10 @@ class PostCreator
   #   via_email               - Mark this post as arriving via email
   #   raw_email               - Full text of arriving email (to store)
   #   action_code             - Describes a small_action post (optional)
+  #   skip_jobs               - Don't enqueue jobs when creation succeeds. This is needed if you
+  #                             wrap `PostCreator` in a transaction, as the sidekiq jobs could
+  #                             dequeue before the commit finishes. If you do this, be sure to
+  #                             call `enqueue_jobs` after the transaction is comitted.
   #
   #   When replying to a topic:
   #     topic_id              - topic we're replying to
@@ -99,6 +104,11 @@ class PostCreator
       end
     end
 
+    onebox_featured_link = SiteSetting.topic_featured_link_enabled && SiteSetting.topic_featured_link_onebox && guardian.can_edit_featured_link?(find_category_id)
+    if onebox_featured_link
+      @opts[:raw] = DiscourseFeaturedLink.cache_onebox_link(@opts[:featured_link])
+    end
+
     setup_post
 
     return true if skip_validations?
@@ -112,7 +122,7 @@ class PostCreator
     DiscourseEvent.trigger :before_create_post, @post
     DiscourseEvent.trigger :validate_post, @post
 
-    post_validator = Validators::PostValidator.new(skip_topic: true)
+    post_validator = Validators::PostValidator.new(skip_topic: true, skip_post_body: onebox_featured_link)
     post_validator.validate(@post)
 
     valid = @post.errors.blank?
@@ -142,10 +152,13 @@ class PostCreator
     end
 
     if @post && errors.blank?
+      # update counters etc.
+      @post.topic.reload
+
       publish
 
       track_latest_on_category
-      enqueue_jobs
+      enqueue_jobs unless @opts[:skip_jobs]
       BadgeGranter.queue_badge_grant(Badge::Trigger::PostRevision, post: @post)
 
       trigger_after_events(@post)
@@ -160,6 +173,21 @@ class PostCreator
     @post
   end
 
+  def create!
+    create
+
+    if !self.errors.full_messages.empty?
+      raise ActiveRecord::RecordNotSaved.new("Failed to create post", self)
+    end
+
+    @post
+  end
+
+  def enqueue_jobs
+    return unless @post && !@post.errors.present?
+    PostJobsEnqueuer.new(@post, @topic, new_topic?, {import_mode: @opts[:import_mode]}).enqueue_jobs
+  end
+
   def self.track_post_stats
     Rails.env != "test".freeze || @track_post_stats
   end
@@ -172,11 +200,17 @@ class PostCreator
     PostCreator.new(user, opts).create
   end
 
+  def self.create!(user, opts)
+    PostCreator.new(user, opts).create!
+  end
+
   def self.before_create_tasks(post)
     set_reply_info(post)
 
     post.word_count = post.raw.scan(/[[:word:]]+/).size
-    post.post_number ||= Topic.next_post_number(post.topic_id, post.reply_to_post_number.present?)
+
+    whisper = post.post_type == Post.types[:whisper]
+    post.post_number ||= Topic.next_post_number(post.topic_id, post.reply_to_post_number.present?, whisper)
 
     cooking_options = post.cooking_options || {}
     cooking_options[:topic_id] = post.topic_id
@@ -310,6 +344,18 @@ class PostCreator
 
   private
 
+  # TODO: merge the similar function in TopicCreator and fix parameter naming for `category`
+  def find_category_id
+    @opts.delete(:category) if @opts[:archetype].present? && @opts[:archetype] == Archetype.private_message
+
+    category = if (@opts[:category].is_a? Integer) || (@opts[:category] =~ /^\d+$/)
+                 Category.find_by(id: @opts[:category])
+               else
+                 Category.find_by(name_lower: @opts[:category].try(:downcase))
+               end
+    category&.id
+  end
+
   def create_topic
     return if @topic
     begin
@@ -429,15 +475,12 @@ class PostCreator
     end
 
     if @user.staged
-      TopicUser.auto_watch(@user.id, @topic.id)
+      TopicUser.auto_notification_for_staging(@user.id, @topic.id, TopicUser.notification_reasons[:auto_watch])
+    elsif @user.user_option.notification_level_when_replying === NotificationLevels.topic_levels[:watching]
+      TopicUser.auto_notification(@user.id, @topic.id, TopicUser.notification_reasons[:created_post], NotificationLevels.topic_levels[:watching])
     else
-      TopicUser.auto_track(@user.id, @topic.id, TopicUser.notification_reasons[:created_post])
+      TopicUser.auto_notification(@user.id, @topic.id, TopicUser.notification_reasons[:created_post], NotificationLevels.topic_levels[:tracking])
     end
-  end
-
-  def enqueue_jobs
-    return unless @post && !@post.errors.present?
-    PostJobsEnqueuer.new(@post, @topic, new_topic?, {import_mode: @opts[:import_mode]}).enqueue_jobs
   end
 
   def new_topic?

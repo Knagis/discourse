@@ -38,7 +38,7 @@ module Email
 
     def process!
       return if is_blacklisted?
-      @from_email, @from_display_name = parse_from_field
+      @from_email, @from_display_name = parse_from_field(@mail)
       @incoming_email = find_or_create_incoming_email
       process_internal
     rescue => e
@@ -62,6 +62,7 @@ module Email
     end
 
     def process_internal
+      raise BouncedEmailError  if is_bounce?
       raise ScreenedEmailError if ScreenedEmail.should_block?(@from_email)
 
       user = find_or_create_user(@from_email, @from_display_name)
@@ -70,14 +71,13 @@ module Email
 
       @incoming_email.update_columns(user_id: user.id)
 
-      raise BouncedEmailError if is_bounce?
       raise InactiveUserError if !user.active && !user.staged
       raise BlockedUserError  if user.blocked
 
-      body, @elided = select_body
+      body, elided = select_body
       body ||= ""
 
-      raise NoBodyDetectedError if body.blank? && !@mail.has_attachments?
+      raise NoBodyDetectedError if body.blank? && attachments.empty?
 
       if is_auto_generated?
         @incoming_email.update_columns(is_auto_generated: true)
@@ -90,77 +90,43 @@ module Email
       elsif post = find_related_post
         create_reply(user: user,
                      raw: body,
+                     elided: elided,
                      post: post,
                      topic: post.topic,
                      skip_validations: user.staged?)
       else
-        destination = destinations.first
+        first_exception = nil
 
-        raise BadDestinationAddress if destination.blank?
-
-        case destination[:type]
-        when :group
-          group = destination[:obj]
-          create_topic(user: user,
-                       raw: body,
-                       title: subject,
-                       archetype: Archetype.private_message,
-                       target_group_names: [group.name],
-                       is_group_message: true,
-                       skip_validations: true)
-
-        when :category
-          category = destination[:obj]
-
-          raise StrangersNotAllowedError    if user.staged? && !category.email_in_allow_strangers
-          raise InsufficientTrustLevelError if !user.has_trust_level?(SiteSetting.email_in_min_trust)
-
-          create_topic(user: user,
-                       raw: body,
-                       title: subject,
-                       category: category.id,
-                       skip_validations: user.staged? || category.email_in_allow_strangers)
-
-        when :reply
-          email_log = destination[:obj]
-
-          if email_log.user_id != user.id
-            raise ReplyUserNotMatchingError, "email_log.user_id => #{email_log.user_id.inspect}, user.id => #{user.id.inspect}"
+        destinations.each do |destination|
+          begin
+            process_destination(destination, user, body, elided)
+          rescue => e
+            first_exception ||= e
+          else
+            return
           end
-
-          create_reply(user: user,
-                       raw: body,
-                       post: email_log.post,
-                       topic: email_log.post.topic)
         end
+
+        raise first_exception || BadDestinationAddress
       end
     end
-
-    SOFT_BOUNCE_SCORE ||= 1
-    HARD_BOUNCE_SCORE ||= 2
 
     def is_bounce?
       return false unless @mail.bounced? || verp
 
       @incoming_email.update_columns(is_bounce: true)
 
-      if verp
-        bounce_key = verp[/\+verp-(\h{32})@/, 1]
-        if bounce_key && (email_log = EmailLog.find_by(bounce_key: bounce_key))
-          email_log.update_columns(bounced: true)
-          email = email_log.user.try(:email) || @from_email
-          if email.present? && @mail.error_status.present?
-            if @mail.error_status.start_with?("4.")
-              Email::Receiver.update_bounce_score(email, SOFT_BOUNCE_SCORE)
-            else @mail.error_status.start_with?("5.")
-              Email::Receiver.update_bounce_score(email, HARD_BOUNCE_SCORE)
-            end
-          end
-        end
+      if verp && (bounce_key = verp[/\+verp-(\h{32})@/, 1]) && (email_log = EmailLog.find_by(bounce_key: bounce_key))
+        email_log.update_columns(bounced: true)
+        email = email_log.user.try(:email).presence
       end
 
-      if is_auto_generated?
-        Email::Receiver.update_bounce_score(@from_email, SOFT_BOUNCE_SCORE)
+      email ||= @from_email
+
+      if @mail.error_status.present? && @mail.error_status.start_with?("4.")
+        Email::Receiver.update_bounce_score(email, SiteSetting.soft_bounce_score)
+      else
+        Email::Receiver.update_bounce_score(email, SiteSetting.hard_bounce_score)
       end
 
       true
@@ -179,11 +145,19 @@ module Email
 
         if user = User.find_by(email: email)
           user.user_stat.bounce_score += score
-          user.user_stat.reset_bounce_score_after = 30.days.from_now
+          user.user_stat.reset_bounce_score_after = SiteSetting.reset_bounce_score_after_days.days.from_now
           user.user_stat.save
 
-          if user.user_stat.bounce_score >= SiteSetting.bounce_score_threshold
-            StaffActionLogger.new(Discourse.system_user).log_revoke_email(user)
+          bounce_score = user.user_stat.bounce_score
+          if user.active && bounce_score >= SiteSetting.bounce_score_threshold_deactivate
+            user.update_columns(active: false)
+            reason = I18n.t("user.deactivated", email: user.email)
+            StaffActionLogger.new(Discourse.system_user).log_user_deactivate(user, reason)
+          elsif bounce_score >= SiteSetting.bounce_score_threshold
+            # NOTE: we check bounce_score before sending emails, nothing to do
+            # here other than log it happened.
+            reason = I18n.t("user.email.revoked", email: user.email, date: user.user_stat.reset_bounce_score_after)
+            StaffActionLogger.new(Discourse.system_user).log_revoke_email(user, reason)
           end
         end
 
@@ -196,7 +170,8 @@ module Email
     def is_auto_generated?
       return false if SiteSetting.auto_generated_whitelist.split('|').include?(@from_email)
       @mail[:precedence].to_s[/list|junk|bulk|auto_reply/i] ||
-      @mail[:from].to_s[/(mailer-?daemon|postmaster|noreply)@/i] ||
+      @mail[:from].to_s[/(mailer[\-_]?daemon|post[\-_]?master|no[\-_]?reply)@/i] ||
+      @mail[:subject].to_s[/^\s*(Auto:|Automatic reply|Autosvar|Automatisk svar|Automatisch antwoord|Abwesenheitsnotiz|Risposta Non al computer|Automatisch antwoord|Auto Response|Respuesta automática|Fuori sede|Out of Office|Frånvaro|Réponse automatique)/i] ||
       @mail.header.to_s[/auto[\-_]?(response|submitted|replied|reply|generated|respond)|holidayreply|machinegenerated/i]
     end
 
@@ -263,17 +238,27 @@ module Email
       reply.split(previous_replies_regex)[0]
     end
 
-    def parse_from_field
-      if @mail[:from].errors.blank?
-        address_field = @mail[:from].address_list.addresses.first
-        address_field.decoded
-        from_address = address_field.address
-        from_display_name = address_field.display_name.try(:to_s)
-      else
-        from_address = @mail.from[/<([^>]+)>/, 1]
-        from_display_name = @mail.from[/^([^<]+)/, 1]
+    def parse_from_field(mail)
+      if mail[:from].errors.blank?
+        mail[:from].address_list.addresses.each do |address_field|
+          address_field.decoded
+          from_address = address_field.address
+          from_display_name = address_field.display_name.try(:to_s)
+          return [from_address&.downcase, from_display_name&.strip] if from_address["@"]
+        end
       end
-      [from_address.downcase, from_display_name]
+
+      if mail.from[/<[^>]+>/]
+        from_address = mail.from[/<([^>]+)>/, 1]
+        from_display_name = mail.from[/^([^<]+)/, 1]
+      end
+
+      if (from_address.blank? || !from_address["@"]) && mail.from[/\[mailto:[^\]]+\]/]
+        from_address = mail.from[/\[mailto:([^\]]+)\]/, 1]
+        from_display_name = mail.from[/^([^\[]+)/, 1]
+      end
+
+      [from_address&.downcase, from_display_name&.strip]
     end
 
     def subject
@@ -338,6 +323,114 @@ module Email
           return { type: :reply, obj: email_log } if email_log
         end
       end
+    end
+
+    def process_destination(destination, user, body, elided)
+      return if SiteSetting.enable_forwarded_emails &&
+                has_been_forwarded? &&
+                process_forwarded_email(destination, user)
+
+      case destination[:type]
+      when :group
+        group = destination[:obj]
+        create_topic(user: user,
+                     raw: body,
+                     elided: elided,
+                     title: subject,
+                     archetype: Archetype.private_message,
+                     target_group_names: [group.name],
+                     is_group_message: true,
+                     skip_validations: true)
+
+      when :category
+        category = destination[:obj]
+
+        raise StrangersNotAllowedError    if user.staged? && !category.email_in_allow_strangers
+        raise InsufficientTrustLevelError if !user.has_trust_level?(SiteSetting.email_in_min_trust)
+
+        create_topic(user: user,
+                     raw: body,
+                     title: subject,
+                     category: category.id,
+                     skip_validations: user.staged? || category.email_in_allow_strangers)
+
+      when :reply
+        email_log = destination[:obj]
+
+        if email_log.user_id != user.id
+          raise ReplyUserNotMatchingError, "email_log.user_id => #{email_log.user_id.inspect}, user.id => #{user.id.inspect}"
+        end
+
+        create_reply(user: user,
+                     raw: body,
+                     elided: elided,
+                     post: email_log.post,
+                     topic: email_log.post.topic)
+      end
+    end
+
+    def has_been_forwarded?
+      subject[/^[[:blank]]*(re|fwd?)[[:blank]]?:/i] && embedded_email_raw.present?
+    end
+
+    def embedded_email_raw
+      return @embedded_email_raw if @embedded_email_raw
+      text = fix_charset(@mail.multipart? ? @mail.text_part : @mail)
+      @embedded_email_raw, @before_embedded = EmailReplyTrimmer.extract_embedded_email(text)
+      @embedded_email_raw
+    end
+
+    def process_forwarded_email(destination, user)
+      embedded = Mail.new(@embedded_email_raw)
+      email, display_name = parse_from_field(embedded)
+
+      return false if email.blank? || !email["@"]
+
+      embedded_user = find_or_create_user(email, display_name)
+      raw = try_to_encode(embedded.decoded, "UTF-8").presence || embedded.to_s
+      title = embedded.subject.presence || subject
+
+      case destination[:type]
+      when :group
+        group = destination[:obj]
+        post = create_topic(user: embedded_user,
+                            raw: raw,
+                            title: title,
+                            archetype: Archetype.private_message,
+                            target_usernames: [user.username],
+                            target_group_names: [group.name],
+                            is_group_message: true,
+                            skip_validations: true,
+                            created_at: embedded.date)
+
+      when :category
+        category = destination[:obj]
+
+        return false if user.staged? && !category.email_in_allow_strangers
+        return false if !user.has_trust_level?(SiteSetting.email_in_min_trust)
+
+        post = create_topic(user: embedded_user,
+                            raw: raw,
+                            title: title,
+                            category: category.id,
+                            skip_validations: embedded_user.staged?,
+                            created_at: embedded.date)
+      else
+        return false
+      end
+
+      if post && post.topic && @before_embedded.present?
+        post_type = Post.types[:regular]
+        post_type = Post.types[:whisper] if post.topic.private_message? && group.usernames[user.username]
+
+        create_reply(user: user,
+                     raw: @before_embedded,
+                     post: post,
+                     topic: post.topic,
+                     post_type: post_type)
+      end
+
+      true
     end
 
     def reply_by_email_address_regex
@@ -424,12 +517,17 @@ module Email
       raise InvalidPostAction.new(e)
     end
 
+    def attachments
+      # strip blacklisted attachments (mostly signatures)
+      @attachments ||= @mail.attachments.select do |attachment|
+        attachment.content_type !~ SiteSetting.attachment_content_type_blacklist_regex &&
+        attachment.filename !~ SiteSetting.attachment_filename_blacklist_regex
+      end
+    end
+
     def create_post_with_attachments(options={})
       # deal with attachments
-      @mail.attachments.each do |attachment|
-        # always strip S/MIME signatures
-        next if attachment.content_type == "application/pkcs7-mime".freeze
-
+      attachments.each do |attachment|
         tmp = Tempfile.new("discourse-email-attachment")
         begin
           # read attachment
@@ -466,16 +564,17 @@ module Email
       options[:raw_email] = @raw_email
 
       # ensure posts aren't created in the future
-      options[:created_at] = [@mail.date, DateTime.now].min
+      options[:created_at] ||= @mail.date
+      options[:created_at]   = DateTime.now if options[:created_at] > DateTime.now
 
       is_private_message = options[:archetype] == Archetype.private_message ||
                            options[:topic].try(:private_message?)
 
       # only add elided part in messages
-      if @elided.present? && is_private_message
+      if options[:elided].present? && (SiteSetting.always_show_trimmed_content || is_private_message)
         options[:raw] << "\n\n" << "<details class='elided'>" << "\n"
         options[:raw] << "<summary title='#{I18n.t('emails.incoming.show_trimmed_content')}'>&#183;&#183;&#183;</summary>" << "\n"
-        options[:raw] << @elided << "\n"
+        options[:raw] << options[:elided] << "\n"
         options[:raw] << "</details>" << "\n"
       end
 
@@ -491,6 +590,8 @@ module Email
           add_other_addresses(result.post.topic, user)
         end
       end
+
+      result.post
     end
 
     def add_other_addresses(topic, sender)
@@ -501,6 +602,7 @@ module Email
               address_field.decoded
               email = address_field.address.downcase
               display_name = address_field.display_name.try(:to_s)
+              next unless email["@"]
               if should_invite?(email)
                 user = find_or_create_user(email, display_name)
                 if user && can_invite?(topic, user)

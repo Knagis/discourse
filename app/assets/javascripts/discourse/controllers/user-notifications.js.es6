@@ -1,12 +1,12 @@
 import { ajax } from 'discourse/lib/ajax';
 import { default as computed, observes } from 'ember-addons/ember-computed-decorators';
 
-export default Ember.ArrayController.extend({
-  needs: ['application'],
+export default Ember.Controller.extend({
+  application: Ember.inject.controller(),
 
   @observes('model.canLoadMore')
   _showFooter() {
-    this.set("controllers.application.showFooter", !this.get("model.canLoadMore"));
+    this.set("application.showFooter", !this.get("model.canLoadMore"));
   },
 
   @computed('model.content.length')
@@ -14,7 +14,10 @@ export default Ember.ArrayController.extend({
     return length > 0;
   },
 
-  currentPath: Em.computed.alias('controllers.application.currentPath'),
+  @computed('model.content.@each.read')
+  allNotificationsRead() {
+    return !this.get('model.content').some(notification => !notification.get('read'));
+  },
 
   actions: {
     resetNew() {

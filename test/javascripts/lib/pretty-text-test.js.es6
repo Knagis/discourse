@@ -11,7 +11,8 @@ const defaultOpts = buildOptions({
     emoji_set: 'emoji_one',
     highlighted_languages: 'json|ruby|javascript',
     default_code_lang: 'auto',
-    censored_words: 'shucks|whiz|whizzer'
+    censored_words: 'shucks|whiz|whizzer',
+    censored_pattern: '\\d{3}-\\d{4}|tech\\w*'
   },
   getURL: url => url
 });
@@ -159,9 +160,18 @@ test("Links", function() {
          "<p><a href=\"http://discourse.org\">http://google.com ... wat</a></p>",
          "it supports links within links");
 
+  cooked("[http://google.com](http://discourse.org)",
+         "<p><a href=\"http://discourse.org\">http://google.com</a></p>",
+         "it supports markdown links where the name and link match");
+
+
   cooked("[Link](http://www.example.com) (with an outer \"description\")",
          "<p><a href=\"http://www.example.com\">Link</a> (with an outer \"description\")</p>",
          "it doesn't consume closing parens as part of the url");
+
+  cooked("A link inside parentheses (http://www.example.com)",
+         "<p>A link inside parentheses (<a href=\"http://www.example.com\">http://www.example.com</a>)</p>",
+         "it auto-links a url within parentheses");
 
   cooked("[ul][1]\n\n[1]: http://eviltrout.com",
          "<p><a href=\"http://eviltrout.com\">ul</a></p>",
@@ -523,6 +533,9 @@ test("censoring", function() {
   cooked("The link still works. [whiz](http://www.whiz.com)",
          "<p>The link still works. <a href=\"http://www.whiz.com\">&#9632;&#9632;&#9632;&#9632;</a></p>",
          "it won't break links by censoring them.");
+  cooked("Call techapj the computer whiz at 555-555-1234 for free help.",
+         "<p>Call &#9632;&#9632;&#9632;&#9632;&#9632;&#9632;&#9632; the computer &#9632;&#9632;&#9632;&#9632; at 555-&#9632;&#9632;&#9632;&#9632;&#9632;&#9632;&#9632;&#9632; for free help.</p>",
+         "uses both censored words and patterns from site settings");
 });
 
 test("code blocks/spans hoisting", function() {
@@ -551,6 +564,7 @@ test('basic bbcode', function() {
 
 test('urls', function() {
   cookedPara("[url]not a url[/url]", "not a url", "supports [url] that isn't a url");
+  cookedPara("[url]abc.com[/url]", "abc.com", "no error when a url has no protocol and begins with a");
   cookedPara("[url]http://bettercallsaul.com[/url]", "<a href=\"http://bettercallsaul.com\">http://bettercallsaul.com</a>", "supports [url] without parameter");
   cookedPara("[url=http://example.com]example[/url]", "<a href=\"http://example.com\">example</a>", "supports [url] with given href");
   cookedPara("[url=http://www.example.com][img]http://example.com/logo.png[/img][/url]",

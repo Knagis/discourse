@@ -71,38 +71,41 @@ export function userUrl(username) {
 
 export function emailValid(email) {
   // see:  http://stackoverflow.com/questions/46155/validate-email-address-in-javascript
-  var re = /^[a-zA-Z0-9!#$%&'*+\/=?\^_`{|}~\-]+(?:\.[a-zA-Z0-9!#$%&'\*+\/=?\^_`{|}~\-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?$/;
+  const re = /^[a-zA-Z0-9!#$%&'*+\/=?\^_`{|}~\-]+(?:\.[a-zA-Z0-9!#$%&'\*+\/=?\^_`{|}~\-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?$/;
   return re.test(email);
 }
 
-export function selectedText() {
-  var html = '';
+export function extractDomainFromUrl(url) {
+  if (url.indexOf("://") > -1) {
+    url = url.split('/')[2];
+  } else {
+    url = url.split('/')[0];
+  }
+  return url.split(':')[0];
+}
 
-  if (typeof window.getSelection !== "undefined") {
-    var sel = window.getSelection();
-    if (sel.rangeCount) {
-      var container = document.createElement("div");
-      for (var i = 0, len = sel.rangeCount; i < len; ++i) {
-        container.appendChild(sel.getRangeAt(i).cloneContents());
-      }
-      html = container.innerHTML;
-    }
-  } else if (typeof document.selection !== "undefined") {
-    if (document.selection.type === "Text") {
-      html = document.selection.createRange().htmlText;
-    }
+export function selectedText() {
+  const selection = window.getSelection();
+  if (selection.isCollapsed) { return ""; }
+
+  const $div = $("<div>");
+  for (let r = 0; r < selection.rangeCount; r++) {
+    const range = selection.getRangeAt(r);
+    const $ancestor = $(range.commonAncestorContainer);
+
+    // ensure we never quote text in the post menu area
+    const $postMenuArea = $ancestor.find(".post-menu-area")[0];
+    if ($postMenuArea) { range.setEndBefore($postMenuArea); }
+
+    $div.append(range.cloneContents());
   }
 
-  // Strip out any .click elements from the HTML before converting it to text
-  var div = document.createElement('div');
-  div.innerHTML = html;
-  var $div = $(div);
-  // Find all emojis and replace with its title attribute.
-  $div.find('img.emoji').replaceWith(function() { return this.title; });
-  $('.clicks', $div).remove();
-  var text = div.textContent || div.innerText || "";
+  // strip click counters
+  $div.find(".clicks").remove();
+  // replace emojis
+  $div.find("img.emoji").replaceWith(function() { return this.title; });
 
-  return String(text).trim();
+  return String($div.text()).trim();
 }
 
 // Determine the row and col of the caret in an element
@@ -177,10 +180,8 @@ export function validateUploadedFiles(files, bypassNewUserRestriction) {
 
 export function validateUploadedFile(file, type, bypassNewUserRestriction) {
   // check that the uploaded file is authorized
-  if (!authorizesAllExtensions() &&
-      !isAuthorizedUpload(file)) {
-    var extensions = authorizedExtensions();
-    bootbox.alert(I18n.t('post.errors.upload_not_authorized', { authorized_extensions: extensions }));
+  if (!authorizesAllExtensions() && !isAuthorizedUpload(file)) {
+    bootbox.alert(I18n.t('post.errors.upload_not_authorized', { authorized_extensions: authorizedExtensions() }));
     return false;
   }
 
@@ -204,35 +205,36 @@ export function authorizesAllExtensions() {
   return Discourse.SiteSettings.authorized_extensions.indexOf("*") >= 0;
 }
 
+function extensions() {
+  return Discourse.SiteSettings.authorized_extensions
+                               .toLowerCase()
+                               .replace(/[\s\.]+/g, "")
+                               .split("|")
+                               .filter(ext => ext.indexOf("*") === -1);
+}
+
+function extensionsRegex() {
+  return new RegExp("\\.(" + extensions().join("|") + ")$", "i");
+}
+
 export function isAuthorizedUpload(file) {
-  if (file && file.name) {
-    var extensions = _.chain(Discourse.SiteSettings.authorized_extensions.split("|"))
-      .reject(function(extension) { return extension.indexOf("*") >= 0; })
-      .map(function(extension) { return (extension.indexOf(".") === 0 ? extension.substring(1) : extension).replace(".", "\\."); })
-      .value();
-    return new RegExp("\\.(" + extensions.join("|") + ")$", "i").test(file.name);
-  }
-  return false;
+  return file && file.name && extensionsRegex().test(file.name);
 }
 
 export function authorizedExtensions() {
-  return _.chain(Discourse.SiteSettings.authorized_extensions.split("|"))
-    .reject(function(extension) { return extension.indexOf("*") >= 0; })
-    .map(function(extension) { return extension.toLowerCase(); })
-    .value()
-    .join(", ");
+  return extensions().join(", ");
 }
 
 export function uploadLocation(url) {
   if (Discourse.CDN) {
     url = Discourse.getURLWithCDN(url);
-    return url.startsWith('//') ? 'http:' + url : url;
+    return /^\/\//.test(url) ? 'http:' + url : url;
   } else if (Discourse.SiteSettings.enable_s3_uploads) {
     return 'https:' + url;
   } else {
     var protocol = window.location.protocol + '//',
       hostname = window.location.hostname,
-      port = ':' + window.location.port;
+      port = window.location.port ? ':' + window.location.port : '';
     return protocol + hostname + port + url;
   }
 }
@@ -259,7 +261,7 @@ export function allowsImages() {
 
 export function allowsAttachments() {
   return authorizesAllExtensions() ||
-    !(/((png|jpe?g|gif|bmp|tiff?|svg|web|ico)(,\s)?)+$/i).test(authorizedExtensions());
+    !/^((png|jpe?g|gif|bmp|tiff?|svg|webp|ico)(,\s)?)+$/i.test(authorizedExtensions());
 }
 
 export function displayErrorForUpload(data) {

@@ -29,6 +29,9 @@ export function transformBasicPost(post) {
     deletedByAvatarTemplate: null,
     deletedByUsername: null,
     primary_group_name: post.primary_group_name,
+    primary_group_flair_url: post.primary_group_flair_url,
+    primary_group_flair_bg_color: post.primary_group_flair_bg_color,
+    primary_group_flair_color: post.primary_group_flair_color,
     wiki: post.wiki,
     firstPost: post.post_number === 1,
     post_number: post.post_number,
@@ -113,6 +116,7 @@ export default function transformPost(currentUser, site, post, prevPost, nextPos
   postAtts.actionCodeWho = post.action_code_who;
   postAtts.userCustomFields = post.user_custom_fields;
   postAtts.topicUrl = topic.get('url');
+  postAtts.isSaving = post.isSaving;
 
   const showPMMap = topic.archetype === 'private_message' && post.post_number === 1;
   if (showPMMap) {

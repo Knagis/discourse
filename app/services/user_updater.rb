@@ -8,6 +8,7 @@ class UserUpdater
   }
 
   TAG_NAMES = {
+    watching_first_post_tags: :watching_first_post,
     watched_tags: :watching,
     tracked_tags: :tracking,
     muted_tags: :muted
@@ -24,11 +25,11 @@ class UserUpdater
     :enable_quoting,
     :dynamic_favicon,
     :disable_jump_reply,
-    :edit_history_public,
     :automatically_unpin_topics,
     :digest_after_minutes,
     :new_topic_duration_minutes,
     :auto_track_topics_after_msecs,
+    :notification_level_when_replying,
     :email_previous_replies,
     :email_in_reply_to,
     :like_notification_frequency,
@@ -45,12 +46,15 @@ class UserUpdater
     user_profile.location = attributes.fetch(:location) { user_profile.location }
     user_profile.dismissed_banner_key = attributes[:dismissed_banner_key] if attributes[:dismissed_banner_key].present?
     user_profile.website = format_url(attributes.fetch(:website) { user_profile.website })
-    user_profile.bio_raw = attributes.fetch(:bio_raw) { user_profile.bio_raw }
+    unless SiteSetting.enable_sso && SiteSetting.sso_overrides_bio
+      user_profile.bio_raw = attributes.fetch(:bio_raw) { user_profile.bio_raw }
+    end
     user_profile.profile_background = attributes.fetch(:profile_background) { user_profile.profile_background }
     user_profile.card_background = attributes.fetch(:card_background) { user_profile.card_background }
 
     user.name = attributes.fetch(:name) { user.name }
     user.locale = attributes.fetch(:locale) { user.locale }
+    user.date_of_birth = attributes.fetch(:date_of_birth) { user.date_of_birth }
 
     if guardian.can_grant_title?(user)
       user.title = attributes.fetch(:title) { user.title }
@@ -66,14 +70,13 @@ class UserUpdater
       TagUser.batch_set(user, level, attributes[attribute])
     end
 
-
     save_options = false
 
     OPTION_ATTR.each do |attribute|
       if attributes.key?(attribute)
         save_options = true
 
-        if [true,false].include?(user.user_option.send(attribute))
+        if [true, false].include?(user.user_option.send(attribute))
           val = attributes[attribute].to_s == 'true'
           user.user_option.send("#{attribute}=", val)
         else
@@ -81,6 +84,9 @@ class UserUpdater
         end
       end
     end
+
+    # automatically disable digests when mailing_list_mode is enabled
+    user.user_option.email_digests = false if user.user_option.mailing_list_mode
 
     fields = attributes[:custom_fields]
     if fields.present?

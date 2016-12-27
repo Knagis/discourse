@@ -20,6 +20,8 @@ class TopicQuery
                      visible
                      category
                      tags
+                     match_all_tags
+                     no_tags
                      order
                      ascending
                      no_subcategories
@@ -240,9 +242,12 @@ class TopicQuery
         .where("COALESCE(tu.notification_level, :tracking) >= :tracking", tracking: TopicUser.notification_levels[:tracking])
   end
 
-  def self.unread_filter(list)
-    list.where("tu.last_read_post_number < topics.highest_post_number")
-        .where("COALESCE(tu.notification_level, :regular) >= :tracking", regular: TopicUser.notification_levels[:regular], tracking: TopicUser.notification_levels[:tracking])
+  def self.unread_filter(list, opts)
+    col_name = opts[:staff] ? "highest_staff_post_number" : "highest_post_number"
+
+    list.where("tu.last_read_post_number < topics.#{col_name}")
+        .where("COALESCE(tu.notification_level, :regular) >= :tracking",
+               regular: TopicUser.notification_levels[:regular], tracking: TopicUser.notification_levels[:tracking])
   end
 
   def prioritize_pinned_topics(topics, options)
@@ -295,7 +300,6 @@ class TopicQuery
     end
 
     topics.each do |t|
-
       t.allowed_user_ids = filter == :private_messages ? t.allowed_users.map{|u| u.id} : []
     end
 
@@ -319,7 +323,7 @@ class TopicQuery
   end
 
   def unread_results(options={})
-    result = TopicQuery.unread_filter(default_results(options.reverse_merge(:unordered => true)))
+    result = TopicQuery.unread_filter(default_results(options.reverse_merge(:unordered => true)), staff: @user.try(:staff?))
     .order('CASE WHEN topics.user_id = tu.user_id THEN 1 ELSE 2 END')
 
     self.class.results_filter_callbacks.each do |filter_callback|
@@ -449,6 +453,15 @@ class TopicQuery
           result = result.where('categories.id = :category_id OR (categories.parent_category_id = :category_id AND categories.topic_id <> topics.id)', category_id: category_id)
         end
         result = result.references(:categories)
+
+        if !@options[:order]
+          # category default sort order
+          sort_order, sort_ascending = Category.where(id: category_id).pluck(:sort_order, :sort_ascending).first
+          if sort_order
+            options[:order] = sort_order
+            options[:ascending] = !!sort_ascending ? 'true' : 'false'
+          end
+        end
       end
 
       # ALL TAGS: something like this?
@@ -458,13 +471,32 @@ class TopicQuery
         result = result.preload(:tags)
 
         if @options[:tags] && @options[:tags].size > 0
-          result = result.joins(:tags)
-          # ANY of the given tags:
-          if @options[:tags][0].is_a?(Integer)
-            result = result.where("tags.id in (?)", @options[:tags])
+
+          if @options[:match_all_tags]
+            # ALL of the given tags:
+            tags_count = @options[:tags].length
+            @options[:tags] = Tag.where(name: @options[:tags]).pluck(:id) unless @options[:tags][0].is_a?(Integer)
+
+            if tags_count == @options[:tags].length
+              @options[:tags].each_with_index do |tag, index|
+                sql_alias = ['t', index].join
+                result = result.joins("INNER JOIN topic_tags #{sql_alias} ON #{sql_alias}.topic_id = topics.id AND #{sql_alias}.tag_id = #{tag}")
+              end
+            else
+              result = result.none # don't return any results unless all tags exist in the database
+            end
           else
-            result = result.where("tags.name in (?)", @options[:tags])
+            # ANY of the given tags:
+            result = result.joins(:tags)
+            if @options[:tags][0].is_a?(Integer)
+              result = result.where("tags.id in (?)", @options[:tags])
+            else
+              result = result.where("tags.name in (?)", @options[:tags])
+            end
           end
+        elsif @options[:no_tags]
+          # the following will do: ("topics"."id" NOT IN (SELECT DISTINCT "topic_tags"."topic_id" FROM "topic_tags"))
+          result = result.where.not(:id => TopicTag.select(:topic_id).uniq)
         end
       end
 
@@ -593,8 +625,7 @@ class TopicQuery
       if user.nil? || !SiteSetting.tagging_enabled || !SiteSetting.remove_muted_tags_from_latest
         list
       else
-        muted_tags = DiscourseTagging.muted_tags(user)
-        if muted_tags.empty?
+        if !TagUser.lookup(user, :muted).exists?
           list
         else
           showing_tag = if opts[:filter]
@@ -604,17 +635,17 @@ class TopicQuery
             nil
           end
 
-          if muted_tags.include?(showing_tag)
+          if TagUser.lookup(user, :muted).joins(:tag).where('tags.name = ?', showing_tag).exists?
             list # if viewing the topic list for a muted tag, show all the topics
           else
-            arr = muted_tags.map{ |z| "'#{z}'" }.join(',')
-            list.where("EXISTS (
-       SELECT 1
-         FROM topic_custom_fields tcf
-        WHERE tcf.name = 'tags'
-          AND tcf.value NOT IN (#{arr})
-          AND tcf.topic_id = topics.id
-       ) OR NOT EXISTS (select 1 from topic_custom_fields tcf where tcf.name = 'tags' and tcf.topic_id = topics.id)")
+            muted_tag_ids = TagUser.lookup(user, :muted).pluck(:tag_id)
+            list = list.where("
+              EXISTS (
+                SELECT 1
+                  FROM topic_tags tt
+                 WHERE tt.tag_id NOT IN (:tag_ids)
+                   AND tt.topic_id = topics.id
+              ) OR NOT EXISTS (SELECT 1 FROM topic_tags tt WHERE tt.topic_id = topics.id)", tag_ids: muted_tag_ids)
           end
         end
       end
@@ -628,7 +659,7 @@ class TopicQuery
     end
 
     def unread_messages(params)
-      TopicQuery.unread_filter(messages_for_groups_or_user(params[:my_group_ids]))
+      TopicQuery.unread_filter(messages_for_groups_or_user(params[:my_group_ids]), staff: @user.try(:staff?))
                 .limit(params[:count])
     end
 
@@ -699,7 +730,7 @@ class TopicQuery
 
     def random_suggested(topic, count, excluded_topic_ids=[])
       result = default_results(unordered: true, per_page: count).where(closed: false, archived: false)
-      excluded_topic_ids += Category.pluck(:topic_id).compact
+      excluded_topic_ids += Category.topic_ids.to_a
       result = result.where("topics.id NOT IN (?)", excluded_topic_ids) unless excluded_topic_ids.empty?
 
       result = remove_muted_categories(result, @user)

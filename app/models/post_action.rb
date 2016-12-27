@@ -227,7 +227,7 @@ SQL
 
     if [:notify_moderators, :spam].include?(post_action_type)
       opts[:subtype] = TopicSubtype.notify_moderators
-      opts[:target_group_names] = "moderators"
+      opts[:target_group_names] = target_moderators
     else
       opts[:subtype] = TopicSubtype.notify_user
       opts[:target_usernames] = if post_action_type == :notify_user
@@ -435,8 +435,10 @@ SQL
                                          post_action_type: post_action_type_key)
     end
 
-    topic_count = Post.where(topic_id: topic_id).sum(column)
-    Topic.where(id: topic_id).update_all ["#{column} = ?", topic_count]
+    if column == "like_count"
+      topic_count = Post.where(topic_id: topic_id).sum(column)
+      Topic.where(id: topic_id).update_all ["#{column} = ?", topic_count]
+    end
 
     if PostActionType.notify_flag_type_ids.include?(post_action_type_id)
       PostAction.update_flagged_posts_count

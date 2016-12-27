@@ -86,7 +86,7 @@
 }
 
 .user-preferences {
-  input.category-group {
+  input.category-selector {
   }
 
   textarea {
@@ -587,10 +587,6 @@
 }
 
 .user-archive {
-  display: inline-block;
-}
-
-.notification-buttons {
   display: inline-block;
 }
 

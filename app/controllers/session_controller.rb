@@ -11,13 +11,16 @@ class SessionController < ApplicationController
   end
 
   def sso
-    return_path = if params[:return_path]
-      params[:return_path]
-    elsif session[:destination_url]
-      URI::parse(session[:destination_url]).path
-    else
-      path('/')
+    destination_url = cookies[:destination_url] || session[:destination_url]
+    return_path = params[:return_path] || path('/')
+
+    if destination_url && return_path == path('/')
+      uri = URI::parse(destination_url)
+      return_path = "#{uri.path}#{uri.query ? "?" << uri.query : ""}"
     end
+
+    session.delete(:destination_url)
+    cookies.delete(:destination_url)
 
     if SiteSetting.enable_sso?
       sso = DiscourseSingleSignOn.generate_sso(return_path)
@@ -166,7 +169,6 @@ class SessionController < ApplicationController
     login = params[:login].strip
     login = login[1..-1] if login[0] == "@"
 
-
     if user = User.find_by_username_or_email(login)
 
       # If their password is correct
@@ -291,7 +293,8 @@ class SessionController < ApplicationController
     message = user.suspend_reason ? "login.suspended_with_reason" : "login.suspended"
 
     render json: {
-      error: I18n.t(message, { date: I18n.l(user.suspended_till, format: :date_only), reason: user.suspend_reason}),
+      error: I18n.t(message, { date: I18n.l(user.suspended_till, format: :date_only),
+                               reason: Rack::Utils.escape_html(user.suspend_reason) }),
       reason: 'suspended'
     }
   end

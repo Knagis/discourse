@@ -1,5 +1,5 @@
 import { ajax } from 'discourse/lib/ajax';
-import computed from 'ember-addons/ember-computed-decorators';
+import computed from "ember-addons/ember-computed-decorators";
 
 const Group = Discourse.Model.extend({
   limit: 50,
@@ -90,6 +90,16 @@ const Group = Discourse.Model.extend({
     });
   },
 
+  @computed('flair_bg_color')
+  flairBackgroundHexColor() {
+    return this.get('flair_bg_color') ? this.get('flair_bg_color').replace(new RegExp("[^0-9a-fA-F]", "g"), "") : null;
+  },
+
+  @computed('flair_color')
+  flairHexColor() {
+    return this.get('flair_color') ? this.get('flair_color').replace(new RegExp("[^0-9a-fA-F]", "g"), "") : null;
+  },
+
   asJSON() {
     return {
       name: this.get('name'),
@@ -101,18 +111,28 @@ const Group = Discourse.Model.extend({
       primary_group: !!this.get('primary_group'),
       grant_trust_level: this.get('grant_trust_level'),
       incoming_email: this.get("incoming_email"),
+      flair_url: this.get('flair_url'),
+      flair_bg_color: this.get('flairBackgroundHexColor'),
+      flair_color: this.get('flairHexColor'),
+      bio_raw: this.get('bio_raw')
     };
   },
 
   create() {
     var self = this;
-    return ajax("/admin/groups", { type: "POST", data: this.asJSON() }).then(function(resp) {
+    return ajax("/admin/groups", { type: "POST", data:  { group: this.asJSON() } }).then(function(resp) {
       self.set('id', resp.basic_group.id);
     });
   },
 
   save() {
-    return ajax("/admin/groups/" + this.get('id'), { type: "PUT", data: this.asJSON() });
+    const id = this.get('id');
+    const url = this.get('is_group_owner') ? `/groups/${id}` : `/admin/groups/${id}`;
+
+    return ajax(url, {
+      type: "PUT",
+      data: { group: this.asJSON() }
+    });
   },
 
   destroy() {
@@ -138,12 +158,12 @@ const Group = Discourse.Model.extend({
   },
 
   setNotification(notification_level) {
-    this.set("notification_level", notification_level);
+    this.set("group_user.notification_level", notification_level);
     return ajax(`/groups/${this.get("name")}/notifications`, {
       data: { notification_level },
       type: "POST"
     });
-  },
+  }
 });
 
 Group.reopenClass({
@@ -151,10 +171,6 @@ Group.reopenClass({
     return ajax("/admin/groups.json", { data: opts }).then(function (groups){
       return groups.map(g => Group.create(g));
     });
-  },
-
-  findGroupCounts(name) {
-    return ajax("/groups/" + name + "/counts.json").then(result => Em.Object.create(result.counts));
   },
 
   find(name) {
@@ -168,7 +184,11 @@ Group.reopenClass({
         offset: offset || 0
       }
     });
-  }
+  },
+
+  mentionable(name) {
+    return ajax(`/groups/${name}/mentionable`, { data: { name } });
+  },
 });
 
 export default Group;

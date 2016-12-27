@@ -1,16 +1,25 @@
 import { default as PrettyText, buildOptions } from 'pretty-text/pretty-text';
 import { performEmojiUnescape, buildEmojiUrl } from 'pretty-text/emoji';
+import WhiteLister from 'pretty-text/white-lister';
+import { sanitize as textSanitize } from 'pretty-text/sanitizer';
+
+function getOpts() {
+  const siteSettings = Discourse.__container__.lookup('site-settings:main');
+
+  return buildOptions({
+    getURL: Discourse.getURLWithCDN,
+    currentUser: Discourse.__container__.lookup('current-user:main'),
+    siteSettings
+  });
+}
 
 // Use this to easily create a pretty text instance with proper options
 export function cook(text) {
-  const siteSettings = Discourse.__container__.lookup('site-settings:main');
+  return new Handlebars.SafeString(new PrettyText(getOpts()).cook(text));
+}
 
-  const opts = {
-    getURL: Discourse.getURLWithCDN,
-    siteSettings
-  };
-
-  return new Handlebars.SafeString(new PrettyText(buildOptions(opts)).cook(text));
+export function sanitize(text) {
+  return textSanitize(text, new WhiteLister(getOpts()));
 }
 
 function emojiOptions() {

@@ -95,12 +95,30 @@ class PostRevisor
     end
   end
 
+  track_topic_field(:featured_link) do |topic_changes, featured_link|
+    if SiteSetting.topic_featured_link_enabled &&
+       featured_link.present? &&
+       topic_changes.guardian.can_edit_featured_link?(topic_changes.topic.category_id)
+
+      topic_changes.record_change('featured_link', topic_changes.topic.featured_link, featured_link)
+      topic_changes.topic.featured_link = featured_link
+
+      if SiteSetting.topic_featured_link_onebox
+        post = topic_changes.topic.first_post
+        post.raw = DiscourseFeaturedLink.cache_onebox_link(featured_link)
+        post.save!
+        post.rebake!
+      end
+    end
+  end
+
   # AVAILABLE OPTIONS:
   # - revised_at: changes the date of the revision
   # - force_new_version: bypass ninja-edit window
   # - bypass_rate_limiter:
   # - bypass_bump: do not bump the topic, even if last post
   # - skip_validations: ask ActiveRecord to skip validations
+  # - skip_revision: do not create a new PostRevision record
   def revise!(editor, fields, opts={})
     @editor = editor
     @fields = fields.with_indifferent_access
@@ -134,9 +152,13 @@ class PostRevisor
     @validate_topic = @opts[:validate_topic] if @opts.has_key?(:validate_topic)
     @validate_topic = !@opts[:validate_topic] if @opts.has_key?(:skip_validations)
 
+    @skip_revision = false
+    @skip_revision = @opts[:skip_revision] if @opts.has_key?(:skip_revision)
+
     Post.transaction do
       revise_post
 
+      yield if block_given?
       # TODO: these callbacks are being called in a transaction
       # it is kind of odd, because the callback is called "before_edit"
       # but the post is already edited at this point
@@ -190,6 +212,7 @@ class PostRevisor
   end
 
   def should_create_new_version?
+    return false if @skip_revision
     edited_by_another_user? || !ninja_edit? || owner_changed? || force_new_version?
   end
 
@@ -323,6 +346,7 @@ class PostRevisor
   end
 
   def create_or_update_revision
+    return if @skip_revision
     # don't create an empty revision if something failed
     return unless successfully_saved_post_and_topic
     @version_changed ? create_revision : update_revision
@@ -418,18 +442,14 @@ class PostRevisor
   def update_category_description
     return unless category = Category.find_by(topic_id: @topic.id)
 
-    body = @post.cooked
-    matches = body.scan(/\<p\>(.*)\<\/p\>/)
+    doc = Nokogiri::HTML.fragment(@post.cooked)
+    doc.css("img").remove
 
-    matches.each do |match|
-      next if match[0] =~ /\<img(.*)src=/ || match[0].blank?
-      new_description = match[0]
-      # first 50 characters should be fine to test they haven't changed the default description
-      new_description = nil if new_description.starts_with?(I18n.t("category.replace_paragraph")[0..50])
-      category.update_column(:description, new_description)
-      @category_changed = category
-      break
-    end
+    html = doc.css("p").first.inner_html.strip
+    new_description = html unless html.starts_with?(Category.post_template[0..50])
+
+    category.update_column(:description, new_description)
+    @category_changed = category
   end
 
   def advance_draft_sequence
@@ -439,6 +459,7 @@ class PostRevisor
   def post_process_post
     @post.invalidate_oneboxes = true
     @post.trigger_post_process
+    DiscourseEvent.trigger(:post_edited, @post, self.topic_changed?)
   end
 
   def update_topic_word_counts

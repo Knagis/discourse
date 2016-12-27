@@ -389,7 +389,7 @@ export function cook(raw, opts) {
 
   preProcessors.forEach(p => raw = p(raw));
 
-  const whiteLister = new WhiteLister(opts.features);
+  const whiteLister = new WhiteLister(opts);
 
   const tree = parser.toHTMLTree(raw, 'Discourse');
   let result = opts.sanitizer(parser.renderJsonML(parseTree(tree, opts)), whiteLister);
@@ -399,7 +399,7 @@ export function cook(raw, opts) {
   if (keys.length) {
     let found = true;
 
-    function unhoist(key) {
+    const unhoist = function(key) {
       result = result.replace(new RegExp(key, "g"), function() {
         found = true;
         return hoisted[key];
@@ -500,7 +500,7 @@ function invalidBoundary(args, prev) {
 
   if (args.wordBoundary && (!last.match(/\W$/))) { return true; }
   if (args.spaceBoundary && (!last.match(/\s$/))) { return true; }
-  if (args.spaceOrTagBoundary && (!last.match(/(\s|\>)$/))) { return true; }
+  if (args.spaceOrTagBoundary && (!last.match(/(\s|\>|\()$/))) { return true; }
 }
 
 function countLines(str) {

@@ -56,15 +56,62 @@ export default function() {
       return response(json);
     });
 
+    this.get('/tags', () => {
+      return response({ tags: [{
+        id: 'eviltrout',
+        count: 1
+      }] });
+    });
+
+    this.get(`/users/eviltrout/emails.json`, () => {
+      return response({ email: 'eviltrout@example.com' });
+    });
+
     this.get('/users/eviltrout.json', () => {
       const json = fixturesByUrl['/users/eviltrout.json'];
-      if (loggedIn()) {
-        json.user.can_edit = true;
-      }
+      json.user.can_edit = loggedIn();
       return response(json);
     });
 
+    this.get('/users/eviltrout/summary.json', () => {
+      return response({
+        user_summary: {
+          topics: [],
+          topic_ids: [],
+          replies: [],
+          links: []
+        },
+        topics: [],
+      });
+    });
+
+    this.get('/users/eviltrout/invited_count.json', () => {
+      return response({
+        "counts": { "pending": 1, "redeemed": 0, "total": 0 }
+      });
+    });
+
+    this.get('/users/eviltrout/invited.json', () => {
+      return response({ "invites": [ {id: 1} ] });
+    });
+
+    this.get('/topics/private-messages/eviltrout.json', () => {
+      return response({ topic_list: { topics: [] } });
+    });
+
     this.get('/clicks/track', success);
+
+    this.get('/search', request => {
+      if (request.queryParams.q === 'posts') {
+        return response({
+          posts: [{
+            id: 1234
+          }]
+        });
+      }
+
+      return response({});
+    });
 
     this.put('/users/eviltrout', () => response({ user: {} }));
 
@@ -108,8 +155,16 @@ export default function() {
       return response({ valid: [{ slug: "bug", url: '/c/bugs' }] });
     });
 
+    this.get("/categories_and_latest", () => response(fixturesByUrl["/categories_and_latest.json"]));
+
     this.put('/categories/:category_id', request => {
+
       const category = parsePostData(request.requestBody);
+
+      if (category.email_in === "duplicate@example.com") {
+        return response(422, {"errors": ['duplicate email']});
+      }
+
       return response({category});
     });
 
@@ -131,8 +186,18 @@ export default function() {
       if (data.password === 'correct') {
         return response({username: 'eviltrout'});
       }
+
+      if (data.password === 'not-activated') {
+        return response({ error: "not active",
+                          reason: "not_activated",
+                          sent_to_email: '<small>eviltrout@example.com</small>',
+                          current_email: '<small>current@example.com</small>' });
+      }
+
       return response(400, {error: 'invalid login'});
     });
+
+    this.post('/users/action/send_activation_email', success);
 
     this.get('/users/hp.json', function() {
       return response({"value":"32faff1b1ef1ac3","challenge":"61a3de0ccf086fb9604b76e884d75801"});
@@ -224,6 +289,13 @@ export default function() {
 
     const siteText = {id: 'site.test', value: 'Test McTest'};
     const overridden = {id: 'site.overridden', value: 'Overridden', overridden: true };
+
+    this.get('/admin/users/list/active.json', () => {
+      return response(200, [
+        {id: 1, username: 'eviltrout', email: '<small>eviltrout@example.com</small>'}
+      ]);
+    });
+
     this.get('/admin/customize/site_texts', request => {
 
       if (request.queryParams.overridden) {

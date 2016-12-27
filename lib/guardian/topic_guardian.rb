@@ -20,6 +20,7 @@ module TopicGuardian
 
   def can_create_post_on_topic?(topic)
     # No users can create posts on deleted topics
+    return false if topic.blank?
     return false if topic.trashed?
     return true if is_admin?
 
@@ -110,4 +111,9 @@ module TopicGuardian
     records
   end
 
+  def can_edit_featured_link?(category_id)
+    SiteSetting.topic_featured_link_enabled &&
+        (topic_featured_link_allowed_category_ids.empty? || # no per category restrictions
+        category_id && topic_featured_link_allowed_category_ids.include?(category_id.to_i)) # category restriction exists
+  end
 end

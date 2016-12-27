@@ -67,6 +67,11 @@ module Email
         add_styles(img, 'max-width: 100%;') if img['style'] !~ /max-width/
       end
 
+      # topic featured link
+      @fragment.css('a.topic-featured-link').each do |e|
+        e['style'] = "color:#858585;padding:2px 8px;border:1px solid #e6e6e6;border-radius:2px;box-shadow:0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);"
+      end
+
       # attachments
       @fragment.css('a.attachment').each do |a|
         # ensure all urls are absolute
@@ -82,7 +87,7 @@ module Email
     end
 
     def format_notification
-      style('.previous-discussion', 'font-size: 17px; color: #444;')
+      style('.previous-discussion', 'font-size: 17px; color: #444; margin-bottom:10px;')
       style('.notification-date', "text-align:right;color:#999999;padding-right:5px;font-family:'lucida grande',tahoma,verdana,arial,sans-serif;font-size:11px")
       style('.username', "font-size:13px;font-family:'lucida grande',tahoma,verdana,arial,sans-serif;color:#3b5998;text-decoration:none;font-weight:bold")
       style('.user-title', "font-size:13px;font-family:'lucida grande',tahoma,verdana,arial,sans-serif;text-decoration:none;margin-left:7px;color: #999;")
@@ -114,12 +119,12 @@ module Email
       style('blockquote > p', 'padding: 1em;')
 
       # Oneboxes
-      style('aside.onebox', "padding: 12px 25px 2px 12px; border-left: 5px solid #bebebe; background: #eee; margin-bottom: 10px;")
-      style('aside.onebox img', "max-height: 80%; max-width: 25%; height: auto; float: left; margin-right: 10px; margin-bottom: 10px")
-      style('aside.onebox h3', "border-bottom: 0")
-      style('aside.onebox .source', "margin-bottom: 8px")
-      style('aside.onebox .source a[href]', "color: #333; font-weight: normal")
-      style('aside.clearfix', "clear: both")
+      style('aside.onebox', "border: 5px solid #e9e9e9; padding: 12px 25px 12px 12px;")
+      style('aside.onebox header a[href]', "color: #222222; text-decoration: none;")
+      style('aside.onebox .onebox-body', "clear: both")
+      style('aside.onebox .onebox-body img', "max-height: 80%; max-width: 20%; height: auto; float: left; margin-right: 10px;")
+      style('aside.onebox .onebox-body h3, aside.onebox .onebox-body h4', "font-size: 1.17em; margin: 10px 0;")
+      style('.onebox-metadata', "color: #919191")
 
       # Finally, convert all `aside` tags to `div`s
       @fragment.css('aside, article, header').each do |n|
@@ -129,13 +134,18 @@ module Email
       # iframes can't go in emails, so replace them with clickable links
       @fragment.css('iframe').each do |i|
         begin
-          src_uri = URI(i['src'])
+          # sometimes, iframes are blacklisted...
+          if i["src"].blank?
+            i.remove
+            next
+          end
 
+          src_uri = URI(i['src'])
           # If an iframe is protocol relative, use SSL when displaying it
           display_src = "#{src_uri.scheme || 'https'}://#{src_uri.host}#{src_uri.path}#{src_uri.query.nil? ? '' : '?' + src_uri.query}#{src_uri.fragment.nil? ? '' : '#' + src_uri.fragment}"
           i.replace "<p><a href='#{src_uri.to_s}'>#{CGI.escapeHTML(display_src)}</a><p>"
         rescue URI::InvalidURIError
-          # If the URL is weird, remove it
+          # If the URL is weird, remove the iframe
           i.remove
         end
       end

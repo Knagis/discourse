@@ -4,8 +4,6 @@
 # authors: Vikhyat Korrapati (vikhyat), Régis Hanol (zogstrip)
 # url: https://github.com/discourse/discourse/tree/master/plugins/poll
 
-enabled_site_setting :poll_enabled
-
 register_asset "stylesheets/common/poll.scss"
 register_asset "stylesheets/common/poll-ui-builder.scss"
 register_asset "stylesheets/desktop/poll.scss", :desktop
@@ -34,8 +32,9 @@ after_initialize do
   class DiscoursePoll::Poll
     class << self
 
-      def vote(post_id, poll_name, options, user_id)
+      def vote(post_id, poll_name, options, user)
         DistributedMutex.synchronize("#{PLUGIN_NAME}-#{post_id}") do
+          user_id = user.id
           post = Post.find_by(id: post_id)
 
           # post must not be deleted
@@ -98,9 +97,7 @@ after_initialize do
           payload = { post_id: post_id, polls: polls }
 
           if public_poll
-            payload.merge!(
-              user: UserNameSerializer.new(User.find(user_id)).serializable_hash
-            )
+            payload.merge!(user: UserNameSerializer.new(user).serializable_hash)
           end
 
           MessageBus.publish("/polls/#{post.topic_id}", payload)
@@ -145,10 +142,10 @@ after_initialize do
         end
       end
 
-      def extract(raw, topic_id)
+      def extract(raw, topic_id, user_id = nil)
         # TODO: we should fix the callback mess so that the cooked version is available
         # in the validators instead of cooking twice
-        cooked = PrettyText.cook(raw, topic_id: topic_id)
+        cooked = PrettyText.cook(raw, topic_id: topic_id, user_id: user_id)
         parsed = Nokogiri::HTML(cooked)
 
         extracted_polls = []
@@ -190,10 +187,9 @@ after_initialize do
       post_id   = params.require(:post_id)
       poll_name = params.require(:poll_name)
       options   = params.require(:options)
-      user_id   = current_user.id
 
       begin
-        poll, options = DiscoursePoll::Poll.vote(post_id, poll_name, options, user_id)
+        poll, options = DiscoursePoll::Poll.vote(post_id, poll_name, options, current_user)
         render json: { poll: poll, vote: options }
       rescue StandardError => e
         render_json_error e.message
@@ -252,6 +248,8 @@ after_initialize do
   end
 
   validate(:post, :validate_polls) do
+    return if !SiteSetting.poll_enabled? && (self.user && !self.user.staff?)
+
     # only care when raw has changed!
     return unless self.raw_changed?
 

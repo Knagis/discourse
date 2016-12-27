@@ -2,18 +2,21 @@ module Email
 
   class Processor
 
-    def initialize(mail)
+    def initialize(mail, retry_on_rate_limit=true)
       @mail = mail
+      @retry_on_rate_limit = retry_on_rate_limit
     end
 
-    def self.process!(mail)
-      Email::Processor.new(mail).process!
+    def self.process!(mail, retry_on_rate_limit=true)
+      Email::Processor.new(mail, retry_on_rate_limit).process!
     end
 
     def process!
       begin
         receiver = Email::Receiver.new(@mail)
         receiver.process!
+      rescue RateLimiter::LimitExceeded
+        @retry_on_rate_limit ? Jobs.enqueue(:process_email, mail: @mail) : raise
       rescue Email::Receiver::BouncedEmailError => e
         # never reply to bounced emails
         log_email_process_failure(@mail, e)
@@ -49,7 +52,6 @@ module Email
         when ActiveRecord::Rollback                       then :email_reject_invalid_post
         when Email::Receiver::InvalidPostAction           then :email_reject_invalid_post_action
         when Discourse::InvalidAccess                     then :email_reject_invalid_access
-        when RateLimiter::LimitExceeded                   then :email_reject_rate_limit_specified
       end
 
       template_args = {}
@@ -61,10 +63,6 @@ module Email
         template_args[:post_error] = e.message
       end
 
-      if message_template == :email_reject_rate_limit_specified
-        template_args[:rate_limit_description] = e.description
-      end
-
       if message_template
         # inform the user about the rejection
         message = Mail::Message.new(mail_string)
@@ -74,8 +72,8 @@ module Email
 
         client_message = RejectionMailer.send_rejection(message_template, message.from, template_args)
 
-        # don't send more than 1 reply per day to auto-generated emails
-        if !incoming_email.try(:is_auto_generated) || can_reply_to_auto_generated?(message.from)
+        # only send one rejection email per day to the same email address
+        if can_send_rejection_email?(message.from, message_template)
           Email::Sender.new(client_message, message_template).send
         end
       else
@@ -89,8 +87,8 @@ module Email
       client_message
     end
 
-    def can_reply_to_auto_generated?(email)
-      key = "auto_generated_reply:#{email}:#{Date.today}"
+    def can_send_rejection_email?(email, type)
+      key = "rejection_email:#{email}:#{type}:#{Date.today}"
 
       if $redis.setnx(key, "1")
         $redis.expire(key, 25.hours)

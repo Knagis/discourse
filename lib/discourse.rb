@@ -97,6 +97,7 @@ module Discourse
     set
   end
 
+
   def self.activate_plugins!
     all_plugins = Plugin::Instance.find_all("#{Rails.root}/plugins")
 
@@ -136,6 +137,14 @@ module Discourse
 
   def self.plugins
     @plugins ||= []
+  end
+
+  def self.official_plugins
+    plugins.find_all{|p| p.metadata.official?}
+  end
+
+  def self.unofficial_plugins
+    plugins.find_all{|p| !p.metadata.official?}
   end
 
   def self.assets_digest
@@ -186,9 +195,13 @@ module Discourse
     ActionController::Base.config.relative_url_root.presence || default_value
   end
 
+  def self.base_protocol
+    SiteSetting.force_https? ? "https" : "http"
+  end
+
   def self.base_url_no_prefix
-    protocol, default_port = SiteSetting.force_https? ? ["https", 443] : ["http", 80]
-    url = "#{protocol}://#{current_hostname}"
+    default_port = SiteSetting.force_https? ? 443 : 80
+    url = "#{base_protocol}://#{current_hostname}"
     url << ":#{SiteSetting.port}" if SiteSetting.port.to_i > 0 && SiteSetting.port.to_i != default_port
     url
   end
@@ -215,10 +228,12 @@ module Discourse
 
   def self.keep_readonly_mode
     # extend the expiry by 1 minute every 30 seconds
-    Thread.new do
-      while readonly_mode?
-        $redis.expire(READONLY_MODE_KEY, READONLY_MODE_KEY_TTL)
-        sleep 30.seconds
+    unless Rails.env.test?
+      Thread.new do
+        while readonly_mode?
+          $redis.expire(READONLY_MODE_KEY, READONLY_MODE_KEY_TTL)
+          sleep 30.seconds
+        end
       end
     end
   end
@@ -231,7 +246,7 @@ module Discourse
   end
 
   def self.readonly_mode?
-    recently_readonly? || !!$redis.get(READONLY_MODE_KEY)
+    recently_readonly? || !!$redis.get(READONLY_MODE_KEY) || !!$redis.get(USER_READONLY_MODE_KEY)
   end
 
   def self.request_refresh!
@@ -321,6 +336,12 @@ module Discourse
     # re-establish
     Sidekiq.redis = sidekiq_redis_config
     start_connection_reaper
+
+    # in case v8 was initialized we want to make sure it is nil
+    PrettyText.reset_context
+
+    Tilt::ES6ModuleTranspilerTemplate.reset_context if defined? Tilt::ES6ModuleTranspilerTemplate
+    JsLocaleHelper.reset_context if defined? JsLocaleHelper
     nil
   end
 
@@ -350,9 +371,11 @@ module Discourse
     end
   end
 
+  SIDEKIQ_NAMESPACE ||= 'sidekiq'.freeze
+
   def self.sidekiq_redis_config
     conf = GlobalSetting.redis_config.dup
-    conf[:namespace] = 'sidekiq'
+    conf[:namespace] = SIDEKIQ_NAMESPACE
     conf
   end
 

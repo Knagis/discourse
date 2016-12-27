@@ -108,7 +108,7 @@ class PostAlerter
 
     sync_group_mentions(post, mentioned_groups)
 
-    if post.post_number == 1
+    if new_record && post.post_number == 1
       topic = post.topic
 
       if topic.present?
@@ -120,7 +120,7 @@ class PostAlerter
                             .where(notification_level: TagUser.notification_levels[:watching_first_post])
                             .pluck(:user_id)
 
-        group_ids = post.user.groups.pluck(:id)
+        group_ids = topic.allowed_groups.pluck(:group_id)
         group_watchers = GroupUser.where(group_id: group_ids,
                                          notification_level: GroupUser.notification_levels[:watching_first_post])
                                   .pluck(:user_id)
@@ -382,16 +382,30 @@ class PostAlerter
           post_number: original_post.post_number,
           topic_title: original_post.topic.title,
           topic_id: original_post.topic.id,
-          excerpt: original_post.excerpt(400, text_entities: true, strip_links: true),
+          excerpt: original_post.excerpt(400, text_entities: true, strip_links: true, remap_emoji: true),
           username: original_username,
           post_url: post_url
         }
 
         MessageBus.publish("/notification-alert/#{user.id}", payload, user_ids: [user.id])
+        push_notification(user, payload)
         DiscourseEvent.trigger(:post_notification_alert, user, payload)
      end
    end
 
+  end
+
+  def push_notification(user, payload)
+    if SiteSetting.allow_user_api_key_scopes.split("|").include?("push") && SiteSetting.allowed_user_api_push_urls.present?
+      clients = user.user_api_keys
+          .where("('push' = ANY(scopes) OR 'notifications' = ANY(scopes)) AND push_url IS NOT NULL AND position(push_url in ?) > 0 AND revoked_at IS NULL",
+                  SiteSetting.allowed_user_api_push_urls)
+          .pluck(:client_id, :push_url)
+
+      if clients.length > 0
+        Jobs.enqueue(:push_notification, clients: clients, payload: payload, user_id: user.id)
+      end
+    end
   end
 
   def expand_group_mentions(groups, post)

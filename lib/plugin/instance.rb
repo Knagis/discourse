@@ -3,6 +3,21 @@ require 'fileutils'
 require_dependency 'plugin/metadata'
 require_dependency 'plugin/auth_provider'
 
+class Plugin::CustomEmoji
+  def self.cache_key
+    @@cache_key ||= "plugin-emoji"
+  end
+
+  def self.emojis
+    @@emojis ||= {}
+  end
+
+  def self.register(name, url)
+    @@cache_key = Digest::SHA1.hexdigest(cache_key + name)[0..10]
+    emojis[name] = url
+  end
+end
+
 class Plugin::Instance
 
   attr_accessor :path, :metadata
@@ -17,13 +32,8 @@ class Plugin::Instance
     }
   end
 
-  # Memoized hash readers
-  [:seed_data, :emojis].each do |att|
-    class_eval %Q{
-      def #{att}
-        @#{att} ||= HashWithIndifferentAccess.new({})
-      end
-    }
+  def seed_data
+    @seed_data ||= HashWithIndifferentAccess.new({})
   end
 
   def self.find_all(parent_path)
@@ -102,7 +112,7 @@ class Plugin::Instance
     end
   end
 
-  def add_model_callback(klass, callback, &block)
+  def add_model_callback(klass, callback, options = {}, &block)
     klass = klass.to_s.classify.constantize rescue klass.to_s.constantize
     plugin = self
 
@@ -112,10 +122,11 @@ class Plugin::Instance
     hidden_method_name = :"#{method_name}_without_enable_check"
     klass.send(:define_method, hidden_method_name, &block)
 
-    klass.send(callback) do |*args|
+    klass.send(callback, options) do |*args|
       send(hidden_method_name, *args) if plugin.enabled?
     end
 
+    hidden_method_name
   end
 
   # Add validation method but check that the plugin is enabled
@@ -193,6 +204,11 @@ class Plugin::Instance
     end
   end
 
+  def register_seedfu_fixtures(paths)
+    paths = [paths] if !paths.kind_of?(Array)
+    SeedFu.fixture_paths.concat(paths)
+  end
+
   def listen_for(event_name)
     return unless self.respond_to?(event_name)
     DiscourseEvent.on(event_name, &self.method(event_name))
@@ -225,7 +241,7 @@ class Plugin::Instance
   end
 
   def register_emoji(name, url)
-    emojis[name] = url
+    Plugin::CustomEmoji.register(name, url)
   end
 
   def automatic_assets
@@ -244,9 +260,12 @@ define("discourse/initializers/login-method-#{hash}",
     __exports__["default"] = {
       name: "login-method-#{hash}",
       after: "inject-objects",
-      initialize: function() {
+      initialize: function(container) {
         if (Ember.testing) { return; }
-        module.register(#{auth_json});
+
+        var authOpts = #{auth_json};
+        authOpts.siteSettings = container.lookup('site-settings:main');
+        module.register(authOpts);
       }
     };
   });
@@ -372,6 +391,37 @@ JS
       @enabled_site_setting = setting
     else
       @enabled_site_setting
+    end
+  end
+
+  def handlebars_includes
+    assets.map do |asset, opts|
+      next if opts == :admin
+      next unless asset =~ DiscoursePluginRegistry::HANDLEBARS_REGEX
+      asset
+    end.compact
+  end
+
+  def javascript_includes
+    assets.map do |asset, opts|
+      next if opts == :admin
+      next unless asset =~ DiscoursePluginRegistry::JS_REGEX
+      asset
+    end.compact
+  end
+
+  def each_globbed_asset
+    if @path
+      # Automatically include all ES6 JS and hbs files
+      root_path = "#{File.dirname(@path)}/assets/javascripts"
+
+      Dir.glob("#{root_path}/**/*") do |f|
+        if File.directory?(f)
+          yield [f,true]
+        elsif f.to_s.ends_with?(".js.es6") || f.to_s.ends_with?(".hbs")
+          yield [f,false]
+        end
+      end
     end
   end
 
